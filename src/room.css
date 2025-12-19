@@ -182,3 +182,13 @@
 /* 補足：モニター内の重なり順は今のままでOK */
 .part-frame { z-index: 30; }   /* モニター自体の枠 */
 .screen-inside { z-index: 20; } /* モニターの中の画面 */
+
+.small-screen {
+  position: absolute;
+  /* 小さいモニターの枠の形に合わせて数値を調整してください */
+  top: 4px; 
+  left: 4px;
+  width: 292px;
+  height: 168px;
+  background-color: #000;
+}
