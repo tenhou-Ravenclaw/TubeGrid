@@ -89,7 +89,7 @@
   width: 60%;
   height: auto;
   top: 310px;
-  left: 680px; 
+  left: 680px;
   z-index: 10; /* アームは下 */
 }
 .part-frame {
@@ -99,9 +99,31 @@
 .screen-inside {
   position: absolute;
   top: 22%;
-  left: 11%;
-  width: 84%;
-  height: 65%;
+  left: 16%;
+  width: 76%;
+  height: 62%;
   z-index: 20; /* ★アーム(10)と枠(30)の間に挟む */
-  background: #000;
+}
+
+.main-screen {
+  top: 22%;
+  left: 16%;
+  width: 76%;
+  height: 62%;
+  background: #000000;
+}
+
+.sub-screen {
+  top: 32px;
+  left: 61px;
+  width: 390px;
+  height: 220px;
+  background-color: rgb(0, 0, 0);
+}
+
+.screen-inside iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
 }
