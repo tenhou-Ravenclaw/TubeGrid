@@ -1,0 +1,105 @@
+/* Room.css */
+
+.world-wrapper {
+  width: 100vw;
+  height: 100vh;
+  overflow: auto; /* スクロールを許可 */
+  background: #000; /* 隙間が見えてもいいように黒 */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.world-wrapper::-webkit-scrollbar {
+  display: none;
+}
+
+.world {
+  width: 3213px;
+  height: 1357px;
+  position: relative;
+  /* 背景のリピートを確実に止める */
+  background-repeat: no-repeat;
+}
+
+/* 背景画像そのものの設定 */
+.bg-layer {
+  width: 3213px;
+  height: 1357px;
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1; /* 一番後ろ */
+  pointer-events: none; /* 背景がドラッグの邪魔をしないように */
+}
+
+/* モニターの設定 */
+.monitor {
+  position: absolute;
+  z-index: 10;
+  cursor: grab;
+}
+
+.monitor:active {
+  cursor: grabbing;
+}
+
+.frame-img {
+  width: 100%; /* .monitor の width に追従 */
+  display: block;
+  pointer-events: none;
+}
+
+/* モニターの中の画面エリア（％で位置合わせ） */
+.screen-area {
+  position: absolute;
+  top: 10%; /* 枠に合わせて調整 */
+  left: 5%; /* 枠に合わせて調整 */
+  width: 90%;
+  height: 75%;
+  background: #000;
+}
+
+.screen-area iframe {
+  width: 100%;
+  height: 100%;
+}
+
+.monitor-group {
+  position: absolute;
+  width: 800px;
+  height: 600px; /* ★高さを指定するか、中身に合わせる */
+  cursor: grab;
+  z-index: 100; /* ★背景(z-index: 1)より確実に手前に出す */
+}
+
+/* 枠とアームの画像が重なるように設定 */
+.part-arm,
+.part-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto; /* ★比率を維持 */
+  display: block;
+  z-index: 10;
+}
+
+.part-arm {
+  width: 60%;
+  height: auto;
+  z-index: 10; /* アームは下 */
+}
+.part-frame {
+  z-index: 30;
+} /* 枠は一番上 */
+
+.screen-inside {
+  position: absolute;
+  top: 15%;
+  left: 8%;
+  width: 84%;
+  height: 65%;
+  z-index: 20; /* ★アーム(10)と枠(30)の間に挟む */
+  background: #000;
+}
