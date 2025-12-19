@@ -1,38 +1,36 @@
 /* Room.css */
 
-.world-wrapper {
-  width: 100vw;
-  height: 100vh;
-  overflow: auto; /* スクロールを許可 */
-  background: #000; /* 隙間が見えてもいいように黒 */
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
 .world-wrapper::-webkit-scrollbar {
   display: none;
+}
+
+.world-wrapper {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background: #fdf0f5; /* 万が一隙間が出ても目立たない色 */
 }
 
 .world {
   width: 3213px;
   height: 1357px;
   position: relative;
-  /* 背景のリピートを確実に止める */
-  background-repeat: no-repeat;
+  /* 文字としての隙間を根本から消す設定 */
+  line-height: 0; 
+  font-size: 0;
 }
 
-/* 背景画像そのものの設定 */
 .bg-layer {
-  width: 3213px;
-  height: 1357px;
-  display: block;
+  width: 100%;
+  height: 100%;
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 1; /* 一番後ろ */
-  pointer-events: none; /* 背景がドラッグの邪魔をしないように */
+  z-index: 1;
+  pointer-events: none;
+  /* display: block にするだけで、ほとんどの隙間は消えます */
+  display: block; 
 }
-
 /* モニターの設定 */
 .monitor {
   position: absolute;
@@ -158,3 +156,29 @@
   width: 100%;
   height: 100%;
 }
+
+/* Room.css */
+
+/* メインモニター全体の重なり (一番上) */
+.main-fixed {
+  z-index: 500 !important; /* サブ(100)より大きく */
+}
+
+/* サブモニター全体の重なり (中間) */
+/* Monitor.jsx でラップしている div または .monitor-draggable-wrapper に適用 */
+.monitor-draggable-wrapper {
+  z-index: 100;
+}
+
+/* モニターアーム (サブモニターより下) */
+.part-arm {
+  width: 13%;
+  height: auto;
+  top: 717px;
+  left: 1920px;
+  z-index: 50; /* サブ(100)より小さく。背景(1)よりは大きく */
+}
+
+/* 補足：モニター内の重なり順は今のままでOK */
+.part-frame { z-index: 30; }   /* モニター自体の枠 */
+.screen-inside { z-index: 20; } /* モニターの中の画面 */

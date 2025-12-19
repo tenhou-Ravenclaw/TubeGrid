@@ -1,11 +1,9 @@
 // Monitor.jsx
 
-import React, { useRef, useState } from "react"; 
+import React, {useRef, useState} from "react";
 import Draggable from "react-draggable";
 
-// 修正前: const Monitor = ({ id, initialPos, frameImg, defaultVid }) => {
-// 修正後: x と y を追加します
-const Monitor = ({ x, y, frameImg, defaultVid }) => {
+const Monitor = ({x, y, rotate, frameImg, defaultVid}) => {
   const nodeRef = useRef(null);
   const [videoId, setVideoId] = useState(defaultVid);
 
@@ -18,29 +16,45 @@ const Monitor = ({ x, y, frameImg, defaultVid }) => {
 
   return (
     <Draggable nodeRef={nodeRef}>
-      <div 
-        ref={nodeRef} 
-        className="monitor-group sub-movable"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleDrop}
-        style={{ 
-          width: "500px", 
-          position: "absolute", 
-          left: `${x}px`, // ここで x を使っているので、上で受け取らないとエラーになる
-          top: `${y}px`,  // y も同様
+      {/* 1. 外側の箱：移動（Draggable）を担当 */}
+      <div
+        ref={nodeRef}
+        className="monitor-draggable-wrapper"
+        style={{
+          position: "absolute",
+          left: `${x}px`,
+          top: `${y}px`,
+          width: "500px",
+          zIndex: 100
         }}
       >
-        <div className="screen-inside sub-screen">
-          <iframe 
-            src={`https://www.youtube.com/embed/${videoId}`} 
-            frameBorder="0"
+        {/* 2. 内側の箱：回転（rotate）を担当 */}
+        <div
+          className="monitor-group sub-movable"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDrop}
+          style={{
+            width: "100%",
+            transform: `rotate(${rotate}deg)`,
+            transformOrigin: "center center",
+          }}
+        >
+          <div className="screen-inside sub-screen">
+            <iframe
+              src={`https://www.youtube.com/embed/${videoId}`}
+              frameBorder="0"
+            />
+          </div>
+          <img
+            src={frameImg}
+            className="part-frame"
+            draggable="false"
+            alt="frame"
           />
         </div>
-        <img src={frameImg} className="part-frame" draggable="false" alt="frame" />
       </div>
     </Draggable>
   );
 };
 
-// Monitor.jsx の一番下に追加
 export default Monitor;
