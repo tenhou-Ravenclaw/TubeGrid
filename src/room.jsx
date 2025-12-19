@@ -1,278 +1,85 @@
-import React, {useRef, useState} from "react";
+import React, {useRef} from "react";
+import Draggable from "react-draggable";
 import "./Room.css";
 import roomImg from "./assets/room.png";
 import monitorFrameImg from "./assets/main-monitor-frame.png";
 import monitorArmImg from "./assets/monitor-arm.png";
 import subMonitorFrameImg from "./assets/sub-monitor1-frame.png";
-import Monitor from "./monitor";
+import Monitor from "./monitor"; // さっき作った部品を読み込む
 import SmallMonitor from "./SmallMonitor";
-import smallMonitorFrameImg from "./assets/small-monitor-frame.png";
-import menuIconImg from "./assets/menu-icon.png";
-import searchIconImg from "./assets/search-icon.png";
-import youtubeIconImg from "./assets/youtube-icon.png";
-import mainVolumeImg from "./assets/volume-bar.png";
+import smallMonitorFrameImg from "./assets/small-monitor-frame.png"; // 新しい画像
 
 const Room = () => {
-  // --- 1. 状態管理（State） ---
-  const [mainVid, setMainVid] = useState("LIVE_ID_MAIN");
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-
-  // --- 2. 初期データ（バックエンド連携の土台） ---
-  const INITIAL_SUB_DATA = [
-    {
-      id: "sub1",
-      x: 920,
-      y: 300,
-      vid: "fSAtD36VPhI",
-      rotate: -10,
-      label: "推し1",
-    },
-    {id: "sub2", x: 1370, y: 70, vid: "dQw4w9WgXcQ", rotate: 0, label: "推し2"},
-    {
-      id: "sub3",
-      x: 1800,
-      y: 300,
-      vid: "fSAtD36VPhI",
-      rotate: 10,
-      label: "推し3",
-    },
-    {
-      id: "sub4",
-      x: 860,
-      y: 760,
-      vid: "dQw4w9WgXcQ",
-      rotate: 15,
-      label: "推し4",
-    },
-    {
-      id: "sub5",
-      x: 1850,
-      y: 800,
-      vid: "fSAtD36VPhI",
-      rotate: -15,
-      label: "推し5",
-    },
+  const subData = [
+    // x, y に加えて rotate (角度) を追加
+    {id: "sub1", x: 920, y: 300, vid: "fSAtD36VPhI", rotate: -10}, // 少し左に傾ける
+    {id: "sub2", x: 1370, y: 70, vid: "dQw4w9WgXcQ", rotate: 0}, // まっすぐ
+    {id: "sub3", x: 1800, y: 300, vid: "fSAtD36VPhI", rotate: 10}, // 右に傾ける
+    {id: "sub4", x: 860, y: 760, vid: "dQw4w9WgXcQ", rotate: 15}, // 大きく左傾斜
+    {id: "sub5", x: 1850, y: 800, vid: "fSAtD36VPhI", rotate: -15}, // 右下に傾斜
   ];
 
-  const INITIAL_SMALL_DATA = [
-    {
-      id: "sm-l1",
-      x: 270,
-      y: 100,
-      rotate: 0,
-      vid: "fSAtD36VPhI",
-      label: "監視 01",
-      isOshi: false,
-    },
-    {
-      id: "sm-l2",
-      x: 600,
-      y: 220,
-      rotate: 0,
-      vid: "dQw4w9WgXcQ",
-      label: "監視 02",
-      isOshi: false,
-    },
-    {
-      id: "sm-l3",
-      x: 320,
-      y: 420,
-      rotate: 0,
-      vid: "fSAtD36VPhI",
-      label: "監視 03",
-      isOshi: false,
-    },
-    {
-      id: "sm-l4",
-      x: 530,
-      y: 660,
-      rotate: 0,
-      vid: "dQw4w9WgXcQ",
-      label: "監視 04",
-      isOshi: false,
-    },
-    {
-      id: "sm-l5",
-      x: 240,
-      y: 860,
-      rotate: 0,
-      vid: "fSAtD36VPhI",
-      label: "監視 05",
-      isOshi: false,
-    },
-    {
-      id: "sm-r1",
-      x: 2630,
-      y: 100,
-      rotate: 0,
-      vid: "dQw4w9WgXcQ",
-      label: "監視 06",
-      isOshi: false,
-    },
-    {
-      id: "sm-r2",
-      x: 2310,
-      y: 220,
-      rotate: 0,
-      vid: "fSAtD36VPhI",
-      label: "監視 07",
-      isOshi: false,
-    },
-    {
-      id: "sm-r3",
-      x: 2560,
-      y: 420,
-      rotate: 0,
-      vid: "dQw4w9WgXcQ",
-      label: "監視 08",
-      isOshi: true,
-    }, // ここ推し！
-    {
-      id: "sm-r4",
-      x: 2380,
-      y: 660,
-      rotate: 0,
-      vid: "fSAtD36VPhI",
-      label: "監視 09",
-      isOshi: false,
-    },
-    {
-      id: "sm-r5",
-      x: 2650,
-      y: 860,
-      rotate: 0,
-      vid: "dQw4w9WgXcQ",
-      label: "監視 10",
-      isOshi: false,
-    },
+  // 小さいモニター10個分のデータ
+  const smallData = [
+    // 左側5個
+    { id: "sm-l1", x: 270, y: 100, rotate: 0, vid: "..." },
+    { id: "sm-l2", x: 600, y: 220, rotate: 0,  vid: "..." },
+    { id: "sm-l3", x: 320, y: 420, rotate: 0,   vid: "..." },
+    { id: "sm-l4", x: 530, y: 660, rotate: 0,  vid: "..." },
+    { id: "sm-l5", x: 240, y: 860, rotate: 0, vid: "..." },
+    // 右側5個
+    { id: "sm-r1", x: 2630, y: 100, rotate: 0,  vid: "..." },
+    { id: "sm-r2", x: 2310, y: 220, rotate: 0,   vid: "..." },
+    { id: "sm-r3", x: 2560, y: 420, rotate: 0,  vid: "..." },
+    { id: "sm-r4", x: 2380, y: 660, rotate: 0, vid: "..." },
+    { id: "sm-r5", x: 2650, y: 860, rotate: 0,  vid: "..." },
   ];
-
-  const [subData, setSubData] = useState(INITIAL_SUB_DATA);
-  const [smallData, setSmallData] = useState(INITIAL_SMALL_DATA);
-
-  // --- 3. ロジック（STEP 4: 入れ替え機能） ---
-  const swapVideo = (id, type) => {
-    const oldMainVid = mainVid;
-    let targetVid = "";
-
-    if (type === "sub") {
-      const target = subData.find((s) => s.id === id);
-      targetVid = target.vid;
-      setSubData(
-        subData.map((s) => (s.id === id ? {...s, vid: oldMainVid} : s))
-      );
-    } else {
-      const target = smallData.find((s) => s.id === id);
-      targetVid = target.vid;
-      setSmallData(
-        smallData.map((s) => (s.id === id ? {...s, vid: oldMainVid} : s))
-      );
-    }
-    setMainVid(targetVid);
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery) return;
-    console.log("バックエンド：APIを叩いてください:", searchQuery);
-    // API連携はここ
-  };
 
   return (
     <div className="world-wrapper">
-      {/* メニューボタン */}
-      <button
-        className="menu-trigger"
-        onClick={() => setIsMenuOpen(!isMenuOpen)}
-      >
-        <img src={menuIconImg} alt="menu" />
-      </button>
-
-      {/* スライドパネル */}
-      <div className={`search-panel ${isMenuOpen ? "open" : ""}`}>
-        <div className="search-container">
-          <div className="search-logo">
-            <img src={youtubeIconImg} alt="YouTube" />
-          </div>
-          <div className="search-bar">
-            <input
-              type="text"
-              placeholder="検索"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-            <button className="search-btn" onClick={handleSearch}>
-              <img src={searchIconImg} alt="検索" />
-            </button>
-          </div>
-        </div>
-
-        <div className="search-results-list">
-          {searchResults.map((video) => (
-            <div
-              key={video.id}
-              className="video-card"
-              draggable
-              onDragStart={(e) =>
-                e.dataTransfer.setData(
-                  "text",
-                  `https://www.youtube.com/watch?v=${video.id}`
-                )
-              }
-            >
-              <div className="thumb-container">
-                <img src={video.thumbnail} alt={video.title} />
-              </div>
-              <div className="video-info">
-                <p className="video-title">{video.title}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       <div className="world">
+        {/* 1. 背景 (z-index: 1) */}
         <img src={roomImg} className="bg-layer" draggable="false" />
+
+        {/* 2. モニターアーム (アームだけを背景のすぐ上に置く) */}
+        {/* メインモニターのグループから外に出すと、サブモニターの下に潜り込ませやすいです */}
         <img
           src={monitorArmImg}
           className="part-arm"
           style={{position: "absolute"}}
         />
 
-        {/* サブモニター群 */}
+        {/* 3. サブモニター群 (z-index: 100) */}
         {subData.map((data) => (
           <Monitor
             key={data.id}
-            {...data}
+            x={data.x}
+            y={data.y}
+            rotate={data.rotate}
             frameImg={subMonitorFrameImg}
-            onSwap={() => swapVideo(data.id, "sub")}
+            defaultVid={data.vid}
           />
         ))}
 
-        {/* メインモニター */}
+        {/* 4. メインモニターの本体 (z-index: 500) */}
         <div
           className="monitor-group main-fixed"
           style={{left: "1200px", top: "350px", position: "absolute"}}
         >
           <div className="screen-inside main-screen">
-            <iframe src={`https://www.youtube.com/embed/${mainVid}`} />
-          </div>
-          <div className="volume-overlay main-volume">
-            <img src={mainVolumeImg} alt="main-volume" />
+            <iframe src="https://www.youtube.com/embed/LIVE_ID_MAIN" />
           </div>
           <img src={monitorFrameImg} className="part-frame" />
-          <div className="monitor-label">MAIN</div>
         </div>
-
-        {/* 小さいモニター群 */}
+        {/* 小さいモニター10枚を展開 */}
         {smallData.map((data) => (
           <SmallMonitor
             key={data.id}
-            {...data}
+            x={data.x}
+            y={data.y}
+            rotate={data.rotate}
             frameImg={smallMonitorFrameImg}
-            onSwap={() => swapVideo(data.id, "small")}
+            defaultVid={data.vid}
           />
         ))}
       </div>
