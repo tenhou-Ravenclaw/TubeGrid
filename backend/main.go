@@ -287,6 +287,20 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "メンバーの削除が完了しました"})
 	})
 
+	// 箱推し一括展開：グループ内の配信者一覧取得
+	r.GET("/groups/:id/talents", func(c *gin.Context) {
+		var group Group
+		if err := db.Preload("Talents").First(&group, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "グループが見つかりません"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"group_id": group.ID,
+			"group_name": group.Name,
+			"talents": group.Talents,
+		})
+	})
+
 	// ユーザーが推しを登録
 	r.POST("/users/:user_id/favorite/:talent_id", func(c *gin.Context) {
 		var user User
