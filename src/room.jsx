@@ -6,6 +6,8 @@ import monitorFrameImg from "./assets/main-monitor-frame.png";
 import monitorArmImg from "./assets/monitor-arm.png";
 import subMonitorFrameImg from "./assets/sub-monitor1-frame.png";
 import Monitor from "./monitor"; // さっき作った部品を読み込む
+import SmallMonitor from "./SmallMonitor";
+import smallMonitorFrameImg from "./assets/small-monitor-frame.png"; // 新しい画像
 
 const Room = () => {
   const subData = [
@@ -15,6 +17,22 @@ const Room = () => {
     {id: "sub3", x: 1900, y: 300, vid: "fSAtD36VPhI", rotate: 10}, // 右に傾ける
     {id: "sub4", x: 860, y: 760, vid: "dQw4w9WgXcQ", rotate: 15}, // 大きく左傾斜
     {id: "sub5", x: 1850, y: 800, vid: "fSAtD36VPhI", rotate: -15}, // 右下に傾斜
+  ];
+
+  // 小さいモニター10個分のデータ
+  const smallData = [
+    // 左側5個
+    { id: "sm-l1", x: 200, y: 100, rotate: 0, vid: "..." },
+    { id: "sm-l2", x: 500, y: 350, rotate: 0,  vid: "..." },
+    { id: "sm-l3", x: 180, y: 600, rotate: 0,   vid: "..." },
+    { id: "sm-l4", x: 220, y: 850, rotate: 0,  vid: "..." },
+    { id: "sm-l5", x: 150, y: 1100, rotate: 0, vid: "..." },
+    // 右側5個
+    { id: "sm-r1", x: 2600, y: 100, rotate: 0,  vid: "..." },
+    { id: "sm-r2", x: 2550, y: 350, rotate: 0,   vid: "..." },
+    { id: "sm-r3", x: 2650, y: 600, rotate: 0,  vid: "..." },
+    { id: "sm-r4", x: 2580, y: 850, rotate: 0, vid: "..." },
+    { id: "sm-r5", x: 2700, y: 1100, rotate: 0,  vid: "..." },
   ];
 
   return (
@@ -53,6 +71,17 @@ const Room = () => {
           </div>
           <img src={monitorFrameImg} className="part-frame" />
         </div>
+        {/* 小さいモニター10枚を展開 */}
+        {smallData.map((data) => (
+          <SmallMonitor
+            key={data.id}
+            x={data.x}
+            y={data.y}
+            rotate={data.rotate}
+            frameImg={smallMonitorFrameImg}
+            defaultVid={data.vid}
+          />
+        ))}
       </div>
     </div>
   );
