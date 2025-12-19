@@ -180,6 +180,78 @@ func main() {
 		c.JSON(http.StatusOK, newGroup)
 	})
 
+	// グループ一覧取得
+	r.GET("/groups", func(c *gin.Context) {
+		var groups []Group
+		if err := db.Find(&groups).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "グループの取得に失敗しました"})
+			return
+		}
+		c.JSON(http.StatusOK, groups)
+	})
+
+	// グループ詳細取得（メンバー含む）
+	r.GET("/groups/:id", func(c *gin.Context) {
+		var group Group
+		if err := db.Preload("Talents").First(&group, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "グループが見つかりません"})
+			return
+		}
+		c.JSON(http.StatusOK, group)
+	})
+
+	// グループ更新
+	r.PUT("/groups/:id", func(c *gin.Context) {
+		var group Group
+		if err := db.First(&group, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "グループが見つかりません"})
+			return
+		}
+
+		var updateData Group
+		if err := c.ShouldBindJSON(&updateData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "入力データが正しくありません: " + err.Error()})
+			return
+		}
+
+		// グループ名を更新
+		group.Name = updateData.Name
+
+		if err := db.Save(&group).Error; err != nil {
+			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				c.JSON(http.StatusConflict, gin.H{"error": "既に存在するグループ名です"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "グループの更新に失敗しました: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "グループの更新が完了しました",
+			"group":   group,
+		})
+	})
+
+	// グループ削除
+	r.DELETE("/groups/:id", func(c *gin.Context) {
+		var group Group
+		if err := db.First(&group, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "グループが見つかりません"})
+			return
+		}
+
+		// 配信者との関連を削除
+		db.Model(&group).Association("Talents").Clear()
+
+		// グループを削除
+		if err := db.Delete(&group).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "グループの削除に失敗しました: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "グループの削除が完了しました"})
+	})
+
 	// グループにメンバーを追加
 	r.POST("/groups/:group_id/add-talent/:talent_id", func(c *gin.Context) {
 		var group Group
@@ -194,6 +266,25 @@ func main() {
 		}
 		db.Model(&group).Association("Talents").Append(&talent)
 		c.JSON(http.StatusOK, gin.H{"message": "追加完了"})
+	})
+
+	// グループからメンバーを削除
+	r.DELETE("/groups/:group_id/remove-talent/:talent_id", func(c *gin.Context) {
+		var group Group
+		var talent Talent
+		if err := db.First(&group, c.Param("group_id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "グループが見つかりません"})
+			return
+		}
+		if err := db.First(&talent, c.Param("talent_id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "配信者が見つかりません"})
+			return
+		}
+		if err := db.Model(&group).Association("Talents").Delete(&talent); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "メンバーの削除に失敗しました: " + err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "メンバーの削除が完了しました"})
 	})
 
 	// ユーザーが推しを登録
