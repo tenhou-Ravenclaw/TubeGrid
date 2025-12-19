@@ -1,11 +1,17 @@
 // Monitor.jsx
-
-import React, {useRef, useState} from "react";
+import React, {useRef, useEffect, useState} from "react";
 import Draggable from "react-draggable";
+import subVolumeImg from "./assets/subVolume-bar.png";
 
-const Monitor = ({x, y, rotate, frameImg, defaultVid}) => {
+// propsに id, vid, onSwap, isOshi, label を追加
+const Monitor = ({id, x, y, rotate, vid, frameImg, onSwap, isOshi, label}) => {
   const nodeRef = useRef(null);
-  const [videoId, setVideoId] = useState(defaultVid);
+
+  // APIやRoom.jsxからの動画ID変更を反映させるためにuseEffectを使う
+  const [videoId, setVideoId] = useState(vid);
+  useEffect(() => {
+    setVideoId(vid);
+  }, [vid]);
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -16,19 +22,23 @@ const Monitor = ({x, y, rotate, frameImg, defaultVid}) => {
 
   return (
     <Draggable nodeRef={nodeRef}>
-      {/* 1. 外側の箱：移動（Draggable）を担当 */}
+      {/* 移動を担当する外枠 */}
       <div
         ref={nodeRef}
-        className="monitor-draggable-wrapper"
+        className={`monitor-draggable-wrapper ${isOshi ? "oshi-focus" : ""}`}
         style={{
           position: "absolute",
           left: `${x}px`,
           top: `${y}px`,
           width: "500px",
-          zIndex: 100
+          // 推しの場合は他のモニターより手前に表示
+          zIndex: isOshi ? 150 : 100,
         }}
+        // ★ダブルクリックでRoom.jsxのswapVideoを発動
+        onDoubleClick={onSwap}
       >
-        {/* 2. 内側の箱：回転（rotate）を担当 */}
+        
+        {/* 回転を担当する内枠 */}
         <div
           className="monitor-group sub-movable"
           onDragOver={(e) => e.preventDefault()}
@@ -39,12 +49,23 @@ const Monitor = ({x, y, rotate, frameImg, defaultVid}) => {
             transformOrigin: "center center",
           }}
         >
+          {/* ★STEP 7: 最推しバッジ（isOshiがtrueの時だけ表示） */}
+          {isOshi && <div className="oshi-badge">最推し</div>}
+
           <div className="screen-inside sub-screen">
             <iframe
               src={`https://www.youtube.com/embed/${videoId}`}
               frameBorder="0"
+              title={`monitor-${id}`}
             />
+            {/* ★STEP 2: 識別ラベル */}
+            <div className="monitor-label small">{label}</div>
+            {/* --- STEP 6: 音量バーの追加 --- */}
+            <div className="volume-overlay">
+              <img src={subVolumeImg} alt="volume" />
+            </div>
           </div>
+
           <img
             src={frameImg}
             className="part-frame"

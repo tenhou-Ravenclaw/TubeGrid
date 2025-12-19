@@ -1,10 +1,16 @@
 // SmallMonitor.jsx
-import React, { useRef, useState } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import Draggable from "react-draggable";
 
-const SmallMonitor = ({ x, y, rotate, frameImg, defaultVid }) => {
+// props に id, vid (defaultVidから変更), onSwap, isOshi, label を追加
+const SmallMonitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label }) => {
   const nodeRef = useRef(null);
-  const [videoId, setVideoId] = useState(defaultVid);
+  const [videoId, setVideoId] = useState(vid);
+
+  // メインモニターとの入れ替え（vidの変更）を検知して画面を更新
+  useEffect(() => {
+    setVideoId(vid);
+  }, [vid]);
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -17,14 +23,18 @@ const SmallMonitor = ({ x, y, rotate, frameImg, defaultVid }) => {
     <Draggable nodeRef={nodeRef}>
       <div
         ref={nodeRef}
-        className="monitor-draggable-wrapper"
+        // 推しなら .oshi-focus クラスを付与
+        className={`monitor-draggable-wrapper small-monitor ${isOshi ? "oshi-focus" : ""}`}
         style={{
           position: "absolute",
           left: `${x}px`,
           top: `${y}px`,
-          width: "300px", // さらに小さいモニターなので300px程度に
-          zIndex: 100
+          width: "300px", 
+          // 推しなら少し手前に、通常ならサブモニター(100)より背面に
+          zIndex: isOshi ? 150 : 80, 
         }}
+        // ★ダブルクリックで入れ替え実行
+        onDoubleClick={onSwap}
       >
         <div
           className="monitor-group small-movable"
@@ -36,12 +46,17 @@ const SmallMonitor = ({ x, y, rotate, frameImg, defaultVid }) => {
             transformOrigin: "center center",
           }}
         >
-          {/* 小さいモニター専用の画面クラス */}
+          {/* ★推しバッジ（小さいモニター用スタイル） */}
+          {isOshi && <div className="oshi-badge small">推し</div>}
+
           <div className="screen-inside small-screen">
             <iframe
               src={`https://www.youtube.com/embed/${videoId}`}
               frameBorder="0"
+              title={`small-${id}`}
             />
+            {/* 識別ラベル */}
+            <div className="monitor-label small-label">{label}</div>
           </div>
           <img
             src={frameImg}
