@@ -313,5 +313,74 @@ func main() {
 		c.JSON(http.StatusOK, user.Favorites)
 	})
 
+	// ユーザー設定取得
+	r.GET("/users/:id/settings", func(c *gin.Context) {
+		var user User
+		if err := db.First(&user, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"default_volume": user.DefaultVolume,
+			"layout_setting": user.LayoutSetting,
+		})
+	})
+
+	// ユーザー設定更新
+	r.PUT("/users/:id/settings", func(c *gin.Context) {
+		var user User
+		if err := db.First(&user, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+			return
+		}
+
+		var updateData struct {
+			DefaultVolume *int    `json:"default_volume"`
+			LayoutSetting *string `json:"layout_setting"`
+		}
+
+		if err := c.ShouldBindJSON(&updateData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "入力データが正しくありません: " + err.Error()})
+			return
+		}
+
+		// 更新可能なフィールドのみ更新
+		if updateData.DefaultVolume != nil {
+			if *updateData.DefaultVolume < 0 || *updateData.DefaultVolume > 100 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "音量は0-100の範囲で指定してください"})
+				return
+			}
+			user.DefaultVolume = *updateData.DefaultVolume
+		}
+
+		if updateData.LayoutSetting != nil {
+			// レイアウト設定のバリデーション
+			validLayouts := []string{"grid", "main-sub"}
+			isValid := false
+			for _, layout := range validLayouts {
+				if *updateData.LayoutSetting == layout {
+					isValid = true
+					break
+				}
+			}
+			if !isValid {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "レイアウト設定は 'grid' または 'main-sub' を指定してください"})
+				return
+			}
+			user.LayoutSetting = *updateData.LayoutSetting
+		}
+
+		if err := db.Save(&user).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "設定の更新に失敗しました: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":        "設定の更新が完了しました",
+			"default_volume":  user.DefaultVolume,
+			"layout_setting":  user.LayoutSetting,
+		})
+	})
+
 	r.Run()
 }
