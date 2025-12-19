@@ -12,9 +12,9 @@ import smallMonitorFrameImg from "./assets/small-monitor-frame.png"; // 新し�
 const Room = () => {
   const subData = [
     // x, y に加えて rotate (角度) を追加
-    {id: "sub1", x: 820, y: 300, vid: "fSAtD36VPhI", rotate: -10}, // 少し左に傾ける
+    {id: "sub1", x: 920, y: 300, vid: "fSAtD36VPhI", rotate: -10}, // 少し左に傾ける
     {id: "sub2", x: 1370, y: 70, vid: "dQw4w9WgXcQ", rotate: 0}, // まっすぐ
-    {id: "sub3", x: 1900, y: 300, vid: "fSAtD36VPhI", rotate: 10}, // 右に傾ける
+    {id: "sub3", x: 1800, y: 300, vid: "fSAtD36VPhI", rotate: 10}, // 右に傾ける
     {id: "sub4", x: 860, y: 760, vid: "dQw4w9WgXcQ", rotate: 15}, // 大きく左傾斜
     {id: "sub5", x: 1850, y: 800, vid: "fSAtD36VPhI", rotate: -15}, // 右下に傾斜
   ];
@@ -22,17 +22,17 @@ const Room = () => {
   // 小さいモニター10個分のデータ
   const smallData = [
     // 左側5個
-    { id: "sm-l1", x: 200, y: 100, rotate: 0, vid: "..." },
-    { id: "sm-l2", x: 500, y: 350, rotate: 0,  vid: "..." },
-    { id: "sm-l3", x: 180, y: 600, rotate: 0,   vid: "..." },
-    { id: "sm-l4", x: 220, y: 850, rotate: 0,  vid: "..." },
-    { id: "sm-l5", x: 150, y: 1100, rotate: 0, vid: "..." },
+    { id: "sm-l1", x: 270, y: 100, rotate: 0, vid: "..." },
+    { id: "sm-l2", x: 600, y: 220, rotate: 0,  vid: "..." },
+    { id: "sm-l3", x: 320, y: 420, rotate: 0,   vid: "..." },
+    { id: "sm-l4", x: 530, y: 660, rotate: 0,  vid: "..." },
+    { id: "sm-l5", x: 240, y: 860, rotate: 0, vid: "..." },
     // 右側5個
-    { id: "sm-r1", x: 2600, y: 100, rotate: 0,  vid: "..." },
-    { id: "sm-r2", x: 2550, y: 350, rotate: 0,   vid: "..." },
-    { id: "sm-r3", x: 2650, y: 600, rotate: 0,  vid: "..." },
-    { id: "sm-r4", x: 2580, y: 850, rotate: 0, vid: "..." },
-    { id: "sm-r5", x: 2700, y: 1100, rotate: 0,  vid: "..." },
+    { id: "sm-r1", x: 2630, y: 100, rotate: 0,  vid: "..." },
+    { id: "sm-r2", x: 2310, y: 220, rotate: 0,   vid: "..." },
+    { id: "sm-r3", x: 2560, y: 420, rotate: 0,  vid: "..." },
+    { id: "sm-r4", x: 2380, y: 660, rotate: 0, vid: "..." },
+    { id: "sm-r5", x: 2650, y: 860, rotate: 0,  vid: "..." },
   ];
 
   return (
