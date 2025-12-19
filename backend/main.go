@@ -88,6 +88,84 @@ func main() {
 		c.JSON(http.StatusOK, newTalent)
 	})
 
+	// 配信者一覧取得
+	r.GET("/talents", func(c *gin.Context) {
+		var talents []Talent
+		if err := db.Find(&talents).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "配信者の取得に失敗しました"})
+			return
+		}
+		c.JSON(http.StatusOK, talents)
+	})
+
+	// 配信者詳細取得
+	r.GET("/talents/:id", func(c *gin.Context) {
+		var talent Talent
+		if err := db.Preload("Groups").First(&talent, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "配信者が見つかりません"})
+			return
+		}
+		c.JSON(http.StatusOK, talent)
+	})
+
+	// 配信者更新
+	r.PUT("/talents/:id", func(c *gin.Context) {
+		var talent Talent
+		if err := db.First(&talent, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "配信者が見つかりません"})
+			return
+		}
+
+		var updateData Talent
+		if err := c.ShouldBindJSON(&updateData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "入力データが正しくありません: " + err.Error()})
+			return
+		}
+
+		// 更新可能なフィールドのみ更新（ChannelIDは変更不可とする）
+		talent.Name = updateData.Name
+		if updateData.Platform != "" {
+			talent.Platform = updateData.Platform
+		}
+
+		if err := db.Save(&talent).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "配信者の更新に失敗しました: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "配信者の更新が完了しました",
+			"talent":  talent,
+		})
+	})
+
+	// 配信者削除
+	r.DELETE("/talents/:id", func(c *gin.Context) {
+		var talent Talent
+		if err := db.First(&talent, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "配信者が見つかりません"})
+			return
+		}
+
+		// グループとの関連を削除
+		db.Model(&talent).Association("Groups").Clear()
+
+		// ユーザーの推しリストからも削除
+		var users []User
+		db.Find(&users)
+		for _, user := range users {
+			db.Model(&user).Association("Favorites").Delete(&talent)
+		}
+
+		// 配信者を削除
+		if err := db.Delete(&talent).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "配信者の削除に失敗しました: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "配信者の削除が完了しました"})
+	})
+
 	// グループ登録
 	r.POST("/groups", func(c *gin.Context) {
 		var newGroup Group
