@@ -66,11 +66,12 @@
 }
 
 .monitor-group {
-  position: absolute;
+  position: relative;
   width: 800px;
   height: 600px; /* ★高さを指定するか、中身に合わせる */
   cursor: grab;
   z-index: 100; /* ★背景(z-index: 1)より確実に手前に出す */
+  transition: transform 0.2s ease; /* 斜めにする時に滑らかに動く */
 }
 
 /* 枠とアームの画像が重なるように設定 */
@@ -119,6 +120,7 @@
   width: 390px;
   height: 220px;
   background-color: rgb(0, 0, 0);
+  transform-style: preserve-3d;
 }
 
 .screen-inside iframe {
@@ -126,4 +128,33 @@
   height: 100%;
   border: none;
   display: block;
+}
+
+/* 左上の回転ハンドル */
+.rotate-handle {
+  position: absolute;
+  top: -20px;   /* 枠の外に出して掴みやすく */
+  left: -20px;  /* 左上に固定 */
+  width: 40px;
+  height: 40px;
+  background: #ff69b4;
+  color: white;
+  border-radius: 50%;
+  z-index: 999; /* 他のパーツより必ず上に */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ew-resize; /* 左右移動で回転することを示すカーソル */
+  user-select: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.rotate-handle:active {
+  background: #ff1493;
+}
+
+/* 回転中にiframeがマウスを吸い取らないように設定 */
+.sub-movable iframe {
+  width: 100%;
+  height: 100%;
 }
