@@ -88,6 +88,8 @@
 .part-arm {
   width: 60%;
   height: auto;
+  top: 310px;
+  left: 680px; 
   z-index: 10; /* アームは下 */
 }
 .part-frame {
@@ -96,8 +98,8 @@
 
 .screen-inside {
   position: absolute;
-  top: 15%;
-  left: 8%;
+  top: 22%;
+  left: 11%;
   width: 84%;
   height: 65%;
   z-index: 20; /* ★アーム(10)と枠(30)の間に挟む */

@@ -6,46 +6,43 @@ import monitorFrameImg from "./assets/main-monitor-frame.png";
 import monitorArmImg from "./assets/monitor-arm.png";
 
 const Room = () => {
-  const mainRef = useRef(null);
+  // メインモニターは固定なので Ref 不要（動かさないため）
+  // サブモニター用の Ref を作成
+  const subRef1 = useRef(null);
 
   return (
     <div className="world-wrapper">
       <div className="world">
-        {/* 背景画像 */}
-        <img
-          src={roomImg}
-          className="bg-layer"
-          draggable="false"
-          alt="background"
-        />
+        {/* --- 背景画像 --- */}
+        <img src={roomImg} className="bg-layer" draggable="false" />
 
-        <Draggable nodeRef={mainRef}>
-          {/* ★Draggableの直下は必ずこの1枚のdivだけにします */}
-          <div
-            ref={mainRef}
-            className="monitor-group"
-            style={{ left: "500px", top: "200px" }}
+        {/* --- ① メインモニター（固定） --- */}
+        {/* Draggable で囲まないことで、位置が固定されます */}
+        <div 
+          className="monitor-group main-fixed" 
+          style={{ left: "1200px", top: "350px" }} // 固定したい座標を指定
+        >
+          <img src={monitorArmImg} className="part-arm" draggable="false" />
+          <div className="screen-inside">
+            <iframe src="https://www.youtube.com/embed/LIVE_ID_MAIN" frameBorder="0" />
+          </div>
+          <img src={monitorFrameImg} className="part-frame" draggable="false" />
+        </div>
+
+        {/* --- ② サブモニター（動かせる） --- */}
+        <Draggable nodeRef={subRef1}>
+          <div 
+            ref={subRef1} 
+            className="monitor-group sub-movable" 
+            style={{ left: "500px", top: "200px", width: "500px" }} // サブは少し小さめに
           >
-            {/* 1. 一番下：アーム */}
-            <img src={monitorArmImg} className="part-arm" draggable="false" />
-
-            {/* 2. 真ん中：YouTube配信画面 */}
             <div className="screen-inside">
-              <iframe
-                src="https://www.youtube.com/embed/fSAtD36VPhI" /* テスト用に動画IDを入れました */
-                frameBorder="0"
-                style={{ width: "100%", height: "100%" }}
-              />
+              <iframe src="https://www.youtube.com/embed/LIVE_ID_SUB" frameBorder="0" />
             </div>
-
-            {/* 3. 一番上：モニターの枠（穴あき） */}
-            <img
-              src={monitorFrameImg}
-              className="part-frame"
-              draggable="false"
-            />
+            <img src={monitorFrameImg} className="part-frame" draggable="false" />
           </div>
         </Draggable>
+
       </div>
     </div>
   );
