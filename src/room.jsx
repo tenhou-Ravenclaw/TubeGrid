@@ -368,22 +368,42 @@ const Room = ({ onLogout, userId: propUserId }) => {
 
   // レイアウトデータからモニター位置を取得
   const getLayoutForMonitor = (monitorId) => {
-    return roomLayouts.find(layout =>
+    // 現在のセッションに存在するストリームのレイアウトのみを返す
+    const layout = roomLayouts.find(layout =>
       (layout.monitor_id || layout.MonitorID) === monitorId
     );
+
+    // レイアウトが存在する場合、そのレイアウトが現在のセッションのストリームに対応しているか確認
+    if (layout && currentSession) {
+      const streams = currentSession.streams || currentSession.Streams || [];
+      // monitorIdからstreamIdを抽出（例: "sub-2" -> 2）
+      const streamIdMatch = monitorId.match(/(?:sub-|sm-)(\d+)/);
+      if (streamIdMatch) {
+        const streamId = parseInt(streamIdMatch[1], 10);
+        const streamExists = streams.some(s => (s.id || s.ID) === streamId);
+        if (!streamExists) {
+          // ストリームが存在しない場合はnullを返す（削除されたモニターのレイアウト）
+          return null;
+        }
+      }
+    }
+
+    return layout;
   };
 
   // セッションストリームをモニター用データ構造にマッピング
   const mapSessionStreamsToMonitors = (session) => {
-    if (!session || !session.streams || session.streams.length === 0) {
+    const streams = session?.streams || session?.Streams || [];
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:377', message: 'mapSessionStreamsToMonitors called', data: { hasSession: !!session, streamCount: streams.length, streamIds: streams.map(s => s.id || s.ID) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'I' }) }).catch(() => { });
+    // #endregion
+    if (!session || streams.length === 0) {
       return {
         mainVid: null,
         subData: [],
         smallData: []
       };
     }
-
-    const streams = session.streams || session.Streams || [];
 
     // メインストリームを取得
     const mainStream = streams.find(s => s.is_main || s.IsMain);
@@ -530,12 +550,33 @@ const Room = ({ onLogout, userId: propUserId }) => {
                 ? { ...l, ...layoutData }
                 : l
             ));
+          } else {
+            // #region agent log
+            const errorText = await response.text().catch(() => '');
+            fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:546', message: 'PUT layout error', data: { monitorId, status: response.status, errorText: errorText.substring(0, 300), layoutData }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'K' }) }).catch(() => { });
+            // #endregion
+            console.error('レイアウト更新エラー:', response.status, errorText);
           }
         } else {
           // 新規作成（初期保存）
-          const allLayouts = [...roomLayouts, layoutData];
+          // 既存のレイアウトから必要なフィールドのみを抽出し、新しいレイアウトを追加
+          const cleanLayouts = roomLayouts.map(l => ({
+            monitor_id: l.monitor_id || l.MonitorID,
+            video_id: l.video_id || l.VideoID || '',
+            x: l.x || l.X || 0,
+            y: l.y || l.Y || 0,
+            rotate: l.rotate || l.Rotate || 0,
+            width: l.width || l.Width || 0,
+            height: l.height || l.Height || 0,
+            z_index: l.z_index || l.ZIndex || 100,
+            is_main: l.is_main || l.IsMain || false,
+            is_oshi: l.is_oshi || l.IsOshi || false,
+            label: l.label || l.Label || '',
+            monitor_type: l.monitor_type || l.MonitorType || 'sub'
+          }));
+          const allLayouts = [...cleanLayouts, layoutData];
           // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:531', message: 'POST request about to be sent', data: { monitorId, url: `${API_BASE_URL}/users/${userId}/room-layout`, bodySize: JSON.stringify(allLayouts).length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+          fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:560', message: 'POST request about to be sent', data: { monitorId, url: `${API_BASE_URL}/users/${userId}/room-layout`, bodySize: JSON.stringify(allLayouts).length, layoutCount: allLayouts.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
           // #endregion
           const response = await fetch(
             `${API_BASE_URL}/users/${userId}/room-layout`,
@@ -546,16 +587,23 @@ const Room = ({ onLogout, userId: propUserId }) => {
             }
           );
           // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:538', message: 'POST response received', data: { monitorId, status: response.status, statusText: response.statusText, ok: response.ok }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+          fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:589', message: 'POST response received', data: { monitorId, status: response.status, statusText: response.statusText, ok: response.ok }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
           // #endregion
           if (response.ok) {
             const data = await response.json();
             setRoomLayouts(data.layouts || allLayouts);
           } else {
             // #region agent log
-            const errorText = await response.text().catch(() => '');
-            fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:542', message: 'POST request failed', data: { monitorId, status: response.status, errorText: errorText.substring(0, 200) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+            let errorData;
+            try {
+              errorData = await response.json();
+            } catch (e) {
+              const errorText = await response.text().catch(() => '');
+              errorData = { error: errorText };
+            }
+            fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:597', message: 'POST layout error', data: { monitorId, status: response.status, errorData, layoutData, allLayoutsCount: allLayouts.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'K' }) }).catch(() => { });
             // #endregion
+            console.error('レイアウト保存エラー:', response.status, errorData);
           }
         }
       } catch (err) {
@@ -722,6 +770,124 @@ const Room = ({ onLogout, userId: propUserId }) => {
       }
     } catch (err) {
       console.error('メインストリーム更新エラー:', err);
+    }
+  };
+
+  const deleteMonitor = async (streamId, type) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:728', message: 'deleteMonitor called', data: { streamId, type, userId, selectedSessionId }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
+    // #endregion
+    if (!userId || !selectedSessionId) {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:729', message: 'deleteMonitor early return', data: { userId, selectedSessionId }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
+      // #endregion
+      return;
+    }
+
+    // 確認ダイアログ
+    if (!confirm('このモニターを削除しますか？')) {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:732', message: 'deleteMonitor cancelled by user', data: { streamId }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+      // #endregion
+      return;
+    }
+
+    try {
+      const requestBody = {
+        remove_stream_ids: [streamId]
+      };
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:735', message: 'Before API request', data: { streamId, url: `${API_BASE_URL}/users/${userId}/sessions/${selectedSessionId}`, requestBody }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'E' }) }).catch(() => { });
+      // #endregion
+      const response = await fetch(
+        `${API_BASE_URL}/users/${userId}/sessions/${selectedSessionId}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        }
+      );
+
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:746', message: 'API response received', data: { streamId, status: response.status, statusText: response.statusText, ok: response.ok }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'E' }) }).catch(() => { });
+      // #endregion
+
+      if (response.ok) {
+        // セッション情報を再取得
+        const sessionResponse = await fetch(
+          `${API_BASE_URL}/users/${userId}/sessions/${selectedSessionId}`
+        );
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:751', message: 'Session refresh response', data: { status: sessionResponse.status, ok: sessionResponse.ok }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'F' }) }).catch(() => { });
+        // #endregion
+        if (sessionResponse.ok) {
+          const sessionData = await sessionResponse.json();
+          const streams = sessionData.streams || sessionData.Streams || [];
+          const streamIds = streams.map(s => s.id || s.ID);
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:777', message: 'Setting current session', data: { streamCount: streams.length, streamIds, deletedStreamId: streamId, isDeleted: !streamIds.includes(streamId), rawSessionData: JSON.stringify(sessionData).substring(0, 1000) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'F' }) }).catch(() => { });
+          // #endregion
+
+          // 削除されたストリームIDをフィルタリング（バックエンドの問題を回避）
+          if (streamIds.includes(streamId)) {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:787', message: 'Filtering deleted stream', data: { deletedStreamId: streamId, streamIdsBefore: streamIds }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'J' }) }).catch(() => { });
+            // #endregion
+            // 削除されたストリームを除外
+            const filteredStreams = streams.filter(s => {
+              const sid = s.id || s.ID;
+              return sid !== streamId;
+            });
+            sessionData.streams = filteredStreams;
+            sessionData.Streams = filteredStreams;
+          }
+
+          // 削除されたモニターのレイアウトも削除
+          const deletedMonitorId = type === "sub" ? `sub-${streamId}` : `sm-${streamId}`;
+          try {
+            const layoutDeleteResponse = await fetch(
+              `${API_BASE_URL}/users/${userId}/room-layout/${deletedMonitorId}`,
+              {
+                method: 'DELETE'
+              }
+            );
+            if (layoutDeleteResponse.ok) {
+              // ローカルのレイアウト状態からも削除
+              setRoomLayouts(prev => prev.filter(l =>
+                (l.monitor_id || l.MonitorID) !== deletedMonitorId
+              ));
+            }
+          } catch (err) {
+            // レイアウト削除のエラーは無視（レイアウトが存在しない場合もある）
+            console.warn('レイアウト削除エラー:', err);
+          }
+
+          setCurrentSession(sessionData);
+        } else {
+          // #region agent log
+          const errorText = await sessionResponse.text().catch(() => '');
+          fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:785', message: 'Session refresh failed', data: { status: sessionResponse.status, errorText: errorText.substring(0, 200) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'F' }) }).catch(() => { });
+          // #endregion
+        }
+      } else {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          const errorText = await response.text().catch(() => '');
+          errorData = { error: errorText || '不明なエラー' };
+        }
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:800', message: 'Delete API error', data: { streamId, error: errorData.error, status: response.status, errorData }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'E' }) }).catch(() => { });
+        // #endregion
+        setError(`削除エラー: ${errorData.error || '不明なエラー'}`);
+      }
+    } catch (err) {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:760', message: 'Delete exception', data: { streamId, error: err.message, stack: err.stack?.substring(0, 200) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'G' }) }).catch(() => { });
+      // #endregion
+      console.error('モニター削除エラー:', err);
+      setError(`モニター削除エラー: ${err.message}`);
     }
   };
 
@@ -900,23 +1066,29 @@ const Room = ({ onLogout, userId: propUserId }) => {
           style={{ position: "absolute" }}
         />
 
-        {subData.map((data) => (
-          <Monitor
-            key={data.id}
-            {...data}
-            frameImg={subMonitorFrameImg}
-            onSwap={() => swapVideo(data.id, "sub")}
-            volume={data.volume || 50}
-            onPositionChange={(position) => saveMonitorPosition(data.id, {
-              ...position,
-              videoId: data.vid,
-              label: data.label,
-              isMain: false,
-              isOshi: data.isOshi,
-              monitorType: 'sub'
-            })}
-          />
-        ))}
+        {subData.map((data) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:973', message: 'Rendering Monitor', data: { monitorId: data.id, streamId: data.streamId, hasStreamId: !!data.streamId }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'H' }) }).catch(() => { });
+          // #endregion
+          return (
+            <Monitor
+              key={data.id}
+              {...data}
+              frameImg={subMonitorFrameImg}
+              onSwap={() => swapVideo(data.id, "sub")}
+              onDelete={() => deleteMonitor(data.streamId, "sub")}
+              volume={data.volume || 50}
+              onPositionChange={(position) => saveMonitorPosition(data.id, {
+                ...position,
+                videoId: data.vid,
+                label: data.label,
+                isMain: false,
+                isOshi: data.isOshi,
+                monitorType: 'sub'
+              })}
+            />
+          );
+        })}
 
         <div
           className="monitor-group main-fixed"
@@ -990,23 +1162,29 @@ const Room = ({ onLogout, userId: propUserId }) => {
           <div className="monitor-label">MAIN</div>
         </div>
 
-        {smallData.map((data) => (
-          <SmallMonitor
-            key={data.id}
-            {...data}
-            frameImg={smallMonitorFrameImg}
-            onSwap={() => swapVideo(data.id, "small")}
-            volume={data.volume || 50}
-            onPositionChange={(position) => saveMonitorPosition(data.id, {
-              ...position,
-              videoId: data.vid,
-              label: data.label,
-              isMain: false,
-              isOshi: data.isOshi,
-              monitorType: 'small'
-            })}
-          />
-        ))}
+        {smallData.map((data) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:1065', message: 'Rendering SmallMonitor', data: { monitorId: data.id, streamId: data.streamId, hasStreamId: !!data.streamId }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'H' }) }).catch(() => { });
+          // #endregion
+          return (
+            <SmallMonitor
+              key={data.id}
+              {...data}
+              frameImg={smallMonitorFrameImg}
+              onSwap={() => swapVideo(data.id, "small")}
+              onDelete={() => deleteMonitor(data.streamId, "small")}
+              volume={data.volume || 50}
+              onPositionChange={(position) => saveMonitorPosition(data.id, {
+                ...position,
+                videoId: data.vid,
+                label: data.label,
+                isMain: false,
+                isOshi: data.isOshi,
+                monitorType: 'small'
+              })}
+            />
+          );
+        })}
       </div>
     </div>
   );

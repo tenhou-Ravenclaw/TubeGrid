@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from "react";
 import Draggable from "react-draggable";
 import subVolumeImg from "./assets/subVolume-bar.png";
 
-const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label, onPositionChange, volume: propVolume = 50 }) => {
+const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, label, onPositionChange, volume: propVolume = 50 }) => {
   const nodeRef = useRef(null);
   const handleRef = useRef(null);
   const [videoId, setVideoId] = useState(vid);
@@ -179,6 +179,7 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label, onPos
       onStop={handleDragStop}
       onStart={handleDragStart}
       position={position}
+      bounds={{ left: -1000, top: -1000, right: 4000, bottom: 2000 }}
     >
       <div
         ref={nodeRef}
@@ -196,6 +197,24 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label, onPos
             width: "100%" 
           }}
         >
+          {onDelete && (
+            <button
+              className="monitor-delete-btn"
+              onClick={(e) => {
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:202',message:'Delete button clicked',data:{monitorId:id,hasOnDelete:!!onDelete},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+                e.stopPropagation();
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:205',message:'Calling onDelete',data:{monitorId:id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+                onDelete();
+              }}
+              title="モニターを削除"
+            >
+              ×
+            </button>
+          )}
           <div className="screen-inside sub-screen">
             {window.YT && window.YT.Player && videoId ? (
               <div id={`sub-player-${id}`} style={{ width: '100%', height: '100%' }}></div>

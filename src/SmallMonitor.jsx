@@ -10,6 +10,7 @@ const SmallMonitor = ({
   vid,
   frameImg,
   onSwap,
+  onDelete,
   isOshi,
   label,
   onPositionChange,
@@ -197,6 +198,7 @@ const SmallMonitor = ({
       onStop={handleDragStop}
       onStart={handleDragStart}
       position={position}
+      bounds={{ left: -1000, top: -1000, right: 4000, bottom: 2000 }}
     >
       <div
         ref={nodeRef}
@@ -224,6 +226,24 @@ const SmallMonitor = ({
             transformOrigin: "center center",
           }}
         >
+          {onDelete && (
+            <button
+              className="monitor-delete-btn small"
+              onClick={(e) => {
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SmallMonitor.jsx:231',message:'Delete button clicked',data:{monitorId:id,hasOnDelete:!!onDelete},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+                e.stopPropagation();
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SmallMonitor.jsx:234',message:'Calling onDelete',data:{monitorId:id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+                onDelete();
+              }}
+              title="モニターを削除"
+            >
+              ×
+            </button>
+          )}
           {isOshi && <div className="oshi-badge small">推し</div>}
 
           <div className="screen-inside small-screen">

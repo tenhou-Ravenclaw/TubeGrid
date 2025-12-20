@@ -497,7 +497,10 @@ func main() {
 			layouts[i].UserID = userIDUint
 		}
 		if err := db.Create(&layouts).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "レイアウトの保存に失敗しました"})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "レイアウトの保存に失敗しました",
+				"details": err.Error(),
+			})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "レイアウトを保存しました", "layouts": layouts})
@@ -947,27 +950,14 @@ func main() {
 			session.SessionName = *updateData.SessionName
 		}
 
-		// メイン入れ替え
-		if updateData.MainStreamID != nil {
-			// 既存のメインを解除
-			for i := range session.Streams {
-				session.Streams[i].IsMain = false
-			}
-			// 新しいメインを設定
-			for i := range session.Streams {
-				if session.Streams[i].ID == *updateData.MainStreamID {
-					session.Streams[i].IsMain = true
-					break
-				}
-			}
-		}
-
 		// 配信の削除
 		if len(updateData.RemoveStreamIDs) > 0 {
 			if err := db.Where("session_id = ? AND id IN ?", session.ID, updateData.RemoveStreamIDs).Delete(&SessionStream{}).Error; err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "ストリームの削除に失敗しました"})
 				return
 			}
+			// 削除後にストリームリストを再読み込み
+			db.Preload("Streams").First(&session, session.ID)
 		}
 
 		// 配信の追加
@@ -995,6 +985,28 @@ func main() {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "ストリームの追加に失敗しました"})
 				return
 			}
+			// 追加後にストリームリストを再読み込み
+			db.Preload("Streams").First(&session, session.ID)
+		}
+
+		// メイン入れ替え（削除・追加後に処理）
+		if updateData.MainStreamID != nil {
+			// 既存のメインを解除
+			for i := range session.Streams {
+				session.Streams[i].IsMain = false
+			}
+			// 新しいメインを設定
+			for i := range session.Streams {
+				if session.Streams[i].ID == *updateData.MainStreamID {
+					session.Streams[i].IsMain = true
+					break
+				}
+			}
+			// メインストリームの変更を保存
+			if err := db.Save(&session.Streams).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "セッションの更新に失敗しました"})
+				return
+			}
 		}
 
 		// 音量更新
@@ -1009,12 +1021,6 @@ func main() {
 					return
 				}
 			}
-		}
-
-		// ストリームの更新を保存
-		if err := db.Save(&session.Streams).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "セッションの更新に失敗しました"})
-			return
 		}
 
 		// セッションを保存
