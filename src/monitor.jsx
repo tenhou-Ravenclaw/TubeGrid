@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from "react";
 import Draggable from "react-draggable";
 import subVolumeImg from "./assets/subVolume-bar.png";
 
-const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, label, onPositionChange, volume: propVolume = 50 }) => {
+const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, label, onPositionChange, volume: propVolume = 50, surgeScore = 0 }) => {
   const nodeRef = useRef(null);
   const handleRef = useRef(null);
   const [videoId, setVideoId] = useState(vid);
@@ -161,6 +161,13 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
     isHoldingRef.current = false;
   };
 
+  // 盛り上がりスコアに基づいてクラス名を決定
+  const getSurgeClass = () => {
+    if (surgeScore > 0.7) return 'surge-high';
+    if (surgeScore > 0.4) return 'surge-medium';
+    return '';
+  };
+
   // ドラッグ開始時の処理
   const handleDragStart = () => {
     // #region agent log
@@ -210,7 +217,7 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
     >
       <div
         ref={nodeRef}
-        className={`monitor-draggable-wrapper ${isOshi ? "oshi-focus" : ""}`}
+        className={`monitor-draggable-wrapper ${isOshi ? "oshi-focus" : ""} ${getSurgeClass()}`}
         style={{ position: "absolute", left: `${position.x}px`, top: `${position.y}px`, zIndex: isOshi ? 150 : 100 }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
@@ -241,6 +248,22 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
             >
               ×
             </button>
+          )}
+          {surgeScore > 0.4 && (
+            <div className="surge-indicator" style={{ 
+              position: 'absolute', 
+              top: '5px', 
+              left: '35px',
+              background: 'rgba(255, 0, 0, 0.8)',
+              color: 'white',
+              padding: '2px 6px',
+              borderRadius: '3px',
+              fontSize: '10px',
+              zIndex: 1001,
+              fontWeight: 'bold'
+            }}>
+              🔥 {Math.round(surgeScore * 100)}%
+            </div>
           )}
           <button
             className="monitor-play-pause-btn"

@@ -366,6 +366,37 @@ type VideoSearchResult struct {
 	PublishedAt  string `json:"published_at"`
 }
 
+// YouTubeコメント取得レスポンス構造体
+type YouTubeCommentResponse struct {
+	Items []struct {
+		Snippet struct {
+			TopLevelComment struct {
+				Snippet struct {
+					TextDisplay string `json:"textDisplay"`
+					AuthorName  string `json:"authorDisplayName"`
+					PublishedAt string `json:"publishedAt"`
+					LikeCount    int    `json:"likeCount"`
+				} `json:"snippet"`
+			} `json:"topLevelComment"`
+		} `json:"snippet"`
+	} `json:"items"`
+	PageInfo struct {
+		TotalResults int `json:"totalResults"`
+	} `json:"pageInfo"`
+}
+
+// YouTubeスーパーチャット取得レスポンス構造体
+type YouTubeSuperChatResponse struct {
+	Items []struct {
+		Snippet struct {
+			AmountMicros string `json:"amountMicros"`
+			Currency     string `json:"currency"`
+			DisplayName  string `json:"displayName"`
+			MessageText  string `json:"messageText"`
+		} `json:"snippet"`
+	} `json:"items"`
+}
+
 // YouTube動画検索
 func searchYouTubeVideos(query string, maxResults int) ([]VideoSearchResult, error) {
 	apiKey, err := getYouTubeAPIKey()
@@ -428,5 +459,123 @@ func searchYouTubeVideos(query string, maxResults int) ([]VideoSearchResult, err
 
 	log.Printf("成功: 動画検索完了 (Query: %s, Results: %d)", query, len(results))
 	return results, nil
+}
+
+// YouTubeコメント取得（最新N件）
+func getYouTubeComments(videoID string, maxResults int) (*CommentAnalysis, error) {
+	apiKey, err := getYouTubeAPIKey()
+	if err != nil {
+		return nil, err
+	}
+
+	// CommentThreads API: コメントを取得
+	commentURL := fmt.Sprintf(
+		"https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=%s&maxResults=%d&order=time&key=%s",
+		videoID, maxResults, apiKey,
+	)
+
+	resp, err := httpClient.Get(commentURL)
+	if err != nil {
+		log.Printf("エラー: コメント取得失敗 (VideoID: %s): %v", videoID, err)
+		return nil, fmt.Errorf("コメント取得失敗: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		// コメントが無効化されている場合（403）やその他のエラーは、空の分析結果を返す
+		if resp.StatusCode == 403 {
+			log.Printf("情報: コメントが無効化されています (VideoID: %s)", videoID)
+			return &CommentAnalysis{
+				TotalComments:     0,
+				SurgeKeywordCount: 0,
+				SurgeKeywordRate:  0.0,
+				UniqueUsers:       0,
+			}, nil
+		}
+		log.Printf("エラー: コメント取得APIエラー (VideoID: %s, ステータス: %d): %s", videoID, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("コメント取得APIエラー: %d", resp.StatusCode)
+	}
+
+	var commentData YouTubeCommentResponse
+	if err := json.NewDecoder(resp.Body).Decode(&commentData); err != nil {
+		log.Printf("エラー: コメント解析失敗 (VideoID: %s): %v", videoID, err)
+		return nil, fmt.Errorf("コメント解析失敗: %v", err)
+	}
+
+	analysis := &CommentAnalysis{
+		TotalComments: commentData.PageInfo.TotalResults,
+	}
+
+	// 盛り上がり単語の検出（stream_service.goの関数を使用）
+	uniqueUsers := make(map[string]bool)
+	surgeKeywordCount := 0
+
+	for _, item := range commentData.Items {
+		text := item.Snippet.TopLevelComment.Snippet.TextDisplay
+		author := item.Snippet.TopLevelComment.Snippet.AuthorName
+
+		// ユニークユーザー数
+		uniqueUsers[author] = true
+
+		// 盛り上がり単語含有チェック（stream_service.goの関数を使用）
+		if detectSurgeKeywords(text) {
+			surgeKeywordCount++
+		}
+	}
+
+	analysis.UniqueUsers = len(uniqueUsers)
+	analysis.SurgeKeywordCount = surgeKeywordCount
+	if len(commentData.Items) > 0 {
+		analysis.SurgeKeywordRate = float64(surgeKeywordCount) / float64(len(commentData.Items))
+	}
+
+	return analysis, nil
+}
+
+// YouTubeスーパーチャット取得
+func getYouTubeSuperChats(videoID string, maxResults int) (float64, int, error) {
+	apiKey, err := getYouTubeAPIKey()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	// SuperChatEvents API: スーパーチャットを取得
+	// 注意: このAPIは配信者のみがアクセス可能な場合があります
+	superChatURL := fmt.Sprintf(
+		"https://www.googleapis.com/youtube/v3/superChatEvents?part=snippet&snippet.videoId=%s&maxResults=%d&key=%s",
+		videoID, maxResults, apiKey,
+	)
+
+	resp, err := httpClient.Get(superChatURL)
+	if err != nil {
+		// スーパーチャットAPIが利用できない場合は0を返す（エラーログは出力しない）
+		return 0, 0, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		// 403 Forbidden、401 Unauthorized などの場合は0を返す（エラーログは出力しない）
+		// スーパーチャットAPIは配信者のみアクセス可能なため、エラーは正常なケース
+		return 0, 0, nil
+	}
+
+	var superChatData YouTubeSuperChatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&superChatData); err != nil {
+		log.Printf("エラー: スーパーチャット解析失敗 (VideoID: %s): %v", videoID, err)
+		return 0, 0, fmt.Errorf("スーパーチャット解析失敗: %v", err)
+	}
+
+	totalAmount := 0.0
+	count := len(superChatData.Items)
+
+	for _, item := range superChatData.Items {
+		// amountMicrosはマイクロ単位（1000000マイクロ = 1円）
+		var amountMicros int64
+		fmt.Sscanf(item.Snippet.AmountMicros, "%d", &amountMicros)
+		totalAmount += float64(amountMicros) / 1000000.0
+	}
+
+	return totalAmount, count, nil
 }
 

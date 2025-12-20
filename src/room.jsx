@@ -46,6 +46,10 @@ const Room = ({ onLogout, userId: propUserId }) => {
   // 音量プリセット管理
   const [volumePresets, setVolumePresets] = useState([]);
 
+  // 盛り上がり配信管理
+  const [surgeStreams, setSurgeStreams] = useState({}); // {videoId: surgeScore}
+  const [commentMetrics, setCommentMetrics] = useState({}); // {videoId: metrics}
+
   // YouTube Player管理
   const [ytReady, setYtReady] = useState(false);
   const mainPlayerRef = useRef(null);
@@ -233,6 +237,115 @@ const Room = ({ onLogout, userId: propUserId }) => {
       (p.talent_id || p.TalentID) === talentId
     );
     return preset ? (preset.volume || preset.Volume || 50) : 50;
+  };
+
+  // 盛り上がり配信の定期取得（30秒ごと）
+  useEffect(() => {
+    if (!selectedSessionId || !userId) return;
+
+    const fetchCommentMetrics = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/users/${userId}/sessions/${selectedSessionId}/surge-streams`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const surgeMap = {};
+          const metricsMap = {};
+
+          data.streams?.forEach(stream => {
+            const videoId = stream.video_id || stream.VideoID;
+            const surgeScore = stream.surge_score || 0;
+            surgeMap[videoId] = surgeScore;
+            metricsMap[videoId] = {
+              commentGrowthScore: stream.comment_growth_score || 0,
+              keywordScore: stream.keyword_score || 0,
+              superChatScore: stream.super_chat_score || 0,
+              commentRate: stream.comment_rate || 0,
+              commentGrowthRate: stream.comment_growth_rate || 0,
+            };
+          });
+
+          setSurgeStreams(surgeMap);
+          setCommentMetrics(metricsMap);
+
+          // コンソールに表示
+          logSurgeMetrics(data.streams || []);
+
+          // 盛り上がり配信の音量を自動調整
+          adjustVolumesForSurge(surgeMap);
+        }
+      } catch (err) {
+        console.error('盛り上がり配信取得エラー:', err);
+      }
+    };
+
+    fetchCommentMetrics();
+    const interval = setInterval(fetchCommentMetrics, 30000); // 30秒ごと
+
+    return () => clearInterval(interval);
+  }, [selectedSessionId, userId]);
+
+  // 盛り上がりメトリクスをコンソールに表示
+  const logSurgeMetrics = (streams) => {
+    if (!streams || streams.length === 0) return;
+
+    console.log(`\n🔥 盛り上がり状況 [${new Date().toLocaleTimeString()}]`);
+    console.log('='.repeat(80));
+
+    streams
+      .sort((a, b) => (b.surge_score || 0) - (a.surge_score || 0))
+      .forEach((stream, index) => {
+        const score = stream.surge_score || 0;
+        const videoId = stream.video_id || stream.VideoID || 'unknown';
+        const emoji = score > 0.7 ? '🔥🔥🔥' : score > 0.4 ? '🔥🔥' : score > 0.2 ? '🔥' : '📊';
+        const style = score > 0.5 ? 'color: #ff0000; font-weight: bold' : 'color: #888';
+
+        console.log(
+          `%c${emoji} ${index + 1}. ${videoId}`,
+          style
+        );
+        console.log(`   総合スコア: ${(score * 100).toFixed(1)}%`);
+        console.log(`   - コメント増加: ${((stream.comment_growth_score || 0) * 100).toFixed(1)}%`);
+        console.log(`   - 単語含有率: ${((stream.keyword_score || 0) * 100).toFixed(1)}%`);
+        console.log(`   - スーパーチャット: ${((stream.super_chat_score || 0) * 100).toFixed(1)}%`);
+        if (stream.comment_rate) {
+          console.log(`   - コメント速度: ${stream.comment_rate.toFixed(2)} コメント/秒`);
+        }
+      });
+
+    console.log('='.repeat(80));
+  };
+
+  // 盛り上がり配信の音量自動調整
+  const adjustVolumesForSurge = (surgeMap) => {
+    // 盛り上がりスコアに基づいて音量を調整
+    Object.entries(surgeMap).forEach(([videoId, score]) => {
+      if (score > 0.3) { // 閾値: 0.3
+        adjustStreamVolume(videoId, score);
+      }
+    });
+  };
+
+  // ストリームの音量を調整
+  const adjustStreamVolume = (videoId, surgeScore) => {
+    // スコアに基づいて音量を計算（例: 50 + surgeScore * 30 = 50-80の範囲）
+    const targetVolume = Math.min(100, Math.max(50, 50 + surgeScore * 30));
+
+    // メインモニターの音量調整
+    if (mainVid === videoId && mainPlayerRef.current) {
+      try {
+        mainPlayerRef.current.setVolume(targetVolume);
+      } catch (error) {
+        console.error('メイン音量調整エラー:', error);
+      }
+    }
+
+    // サブ・スモールモニターの音量調整
+    // playersRefから該当するプレイヤーを探して調整
+    // 注意: 現在の実装では、Monitor/SmallMonitorコンポーネント内で音量を管理しているため、
+    // ここではログのみ出力（実際の調整はコンポーネント側で実装）
+    console.log(`音量調整: VideoID=${videoId}, SurgeScore=${surgeScore.toFixed(2)}, TargetVolume=${targetVolume}`);
   };
 
   // YouTube IFrame APIの読み込み確認
@@ -437,7 +550,8 @@ const Room = ({ onLogout, userId: propUserId }) => {
           label: title.substring(0, 10) || `配信${index + 1}`,
           streamId: streamId,
           talentId: talentId,
-          volume: streamVolume
+          volume: streamVolume,
+          surgeScore: surgeStreams[videoId] || 0
         };
       });
 
@@ -471,7 +585,8 @@ const Room = ({ onLogout, userId: propUserId }) => {
           isOshi: isOshi,
           streamId: streamId,
           talentId: talentId,
-          volume: streamVolume
+          volume: streamVolume,
+          surgeScore: surgeStreams[videoId] || 0
         };
       });
 
@@ -1078,6 +1193,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
               onSwap={() => swapVideo(data.id, "sub")}
               onDelete={() => deleteMonitor(data.streamId, "sub")}
               volume={data.volume || 50}
+              surgeScore={data.surgeScore || 0}
               onPositionChange={(position) => saveMonitorPosition(data.id, {
                 ...position,
                 videoId: data.vid,
@@ -1174,6 +1290,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
               onSwap={() => swapVideo(data.id, "small")}
               onDelete={() => deleteMonitor(data.streamId, "small")}
               volume={data.volume || 50}
+              surgeScore={data.surgeScore || 0}
               onPositionChange={(position) => saveMonitorPosition(data.id, {
                 ...position,
                 videoId: data.vid,

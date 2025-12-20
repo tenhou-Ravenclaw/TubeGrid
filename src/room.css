@@ -335,6 +335,57 @@
   transform: scale(0.95);
 }
 
+/* 盛り上がり配信の枠線強調 */
+.monitor-draggable-wrapper.surge-high {
+  animation: surge-pulse 1s infinite;
+  box-shadow: 0 0 20px rgba(255, 0, 0, 0.8),
+    0 0 40px rgba(255, 0, 0, 0.6),
+    0 0 60px rgba(255, 0, 0, 0.4);
+}
+
+.monitor-draggable-wrapper.surge-medium {
+  animation: surge-pulse 2s infinite;
+  box-shadow: 0 0 15px rgba(255, 165, 0, 0.6),
+    0 0 30px rgba(255, 165, 0, 0.4);
+}
+
+@keyframes surge-pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.02);
+    opacity: 0.9;
+  }
+}
+
+/* 盛り上がりインジケーター */
+.surge-indicator {
+  animation: surge-blink 1s infinite;
+  pointer-events: none;
+}
+
+.surge-indicator.small {
+  font-size: 8px;
+  padding: 1px 3px;
+}
+
+@keyframes surge-blink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
 .menu-trigger img {
   width: 100%;
   height: auto;

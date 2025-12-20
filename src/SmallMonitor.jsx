@@ -15,6 +15,7 @@ const SmallMonitor = ({
   label,
   onPositionChange,
   volume: propVolume = 50,
+  surgeScore = 0,
 }) => {
   const nodeRef = useRef(null); // 本体用
   const handleRef = useRef(null); // つまみ用
@@ -173,6 +174,13 @@ const SmallMonitor = ({
     isHoldingRef.current = false;
   };
 
+  // 盛り上がりスコアに基づいてクラス名を決定
+  const getSurgeClass = () => {
+    if (surgeScore > 0.7) return 'surge-high';
+    if (surgeScore > 0.4) return 'surge-medium';
+    return '';
+  };
+
   // ドラッグ開始時の処理
   const handleDragStart = () => {
     // #region agent log
@@ -231,7 +239,7 @@ const SmallMonitor = ({
         ref={nodeRef}
         className={`monitor-draggable-wrapper small-monitor ${
           isOshi ? "oshi-focus" : ""
-        }`}
+        } ${getSurgeClass()}`}
         style={{
           position: "absolute",
           left: `${position.x}px`,
@@ -270,6 +278,22 @@ const SmallMonitor = ({
             >
               ×
             </button>
+          )}
+          {surgeScore > 0.4 && (
+            <div className="surge-indicator small" style={{ 
+              position: 'absolute', 
+              top: '3px', 
+              left: '30px',
+              background: 'rgba(255, 0, 0, 0.8)',
+              color: 'white',
+              padding: '1px 4px',
+              borderRadius: '3px',
+              fontSize: '9px',
+              zIndex: 1001,
+              fontWeight: 'bold'
+            }}>
+              🔥 {Math.round(surgeScore * 100)}%
+            </div>
           )}
           <button
             className="monitor-play-pause-btn small"

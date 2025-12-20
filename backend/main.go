@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -21,11 +22,15 @@ import (
 
 // --- グローバル変数 ---
 var (
-	eventHistory  = make(map[uint][]StreamEvent)
-	eventMutex    sync.Mutex
-	streamCache   = make(map[uint]CacheItem)
-	cacheMutex    sync.RWMutex
-	cacheDuration = 1 * time.Minute
+	eventHistory        = make(map[uint][]StreamEvent)
+	eventMutex          sync.Mutex
+	streamCache         = make(map[uint]CacheItem)
+	cacheMutex          sync.RWMutex
+	cacheDuration       = 1 * time.Minute
+	commentHistory      = make(map[string][]CommentSnapshot)
+	commentHistoryMutex sync.RWMutex
+	surgeMetricsCache   = make(map[string]SurgeMetrics)
+	surgeMetricsMutex   sync.RWMutex
 )
 
 // --- ロジック関数 ---
@@ -106,7 +111,7 @@ func main() {
 		log.Fatalf("GORM初期化失敗: %v", err)
 	}
 	log.Println("データベース接続成功")
-	db.AutoMigrate(&User{}, &Talent{}, &Group{}, &RoomLayout{}, &ViewingSession{}, &SessionStream{}, &OshiVolumePreset{})
+	db.AutoMigrate(&User{}, &Talent{}, &Group{}, &RoomLayout{}, &ViewingSession{}, &SessionStream{}, &OshiVolumePreset{}, &SurgeWeightSettings{})
 
 	r := gin.Default()
 
@@ -1062,6 +1067,215 @@ func main() {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "セッションの削除が完了しました"})
+	})
+
+	// 盛り上がり配信取得API
+	r.GET("/users/:id/sessions/:session_id/surge-streams", func(c *gin.Context) {
+		var user User
+		if err := db.First(&user, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+			return
+		}
+
+		var session ViewingSession
+		if err := db.Preload("Streams").Where("id = ? AND user_id = ?", c.Param("session_id"), c.Param("id")).First(&session).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "セッションが見つかりません"})
+			return
+		}
+
+		// ユーザーの重み設定を取得（デフォルト値を使用）
+		var weightSettings SurgeWeightSettings
+		if err := db.Where("user_id = ?", user.ID).First(&weightSettings).Error; err != nil {
+			// デフォルト値を使用
+			weightSettings = SurgeWeightSettings{
+				CommentGrowthWeight: 0.5,
+				KeywordWeight:       0.3,
+				SuperChatWeight:     0.2,
+			}
+		}
+
+		var surgeStreams []SurgeMetrics
+
+		// 並列処理で各ストリームのコメント・スーパーチャットを取得
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+
+		for _, stream := range session.Streams {
+			videoID := stream.VideoID
+			if videoID == "" {
+				continue
+			}
+
+			wg.Add(1)
+			go func(s SessionStream, vID string) {
+				defer wg.Done()
+
+				// コメント分析を取得
+				commentAnalysis, err := getYouTubeComments(vID, 100) // 最新100件
+				if err != nil {
+					log.Printf("コメント取得エラー (VideoID: %s): %v", vID, err)
+					// エラーが発生した場合、空の分析結果を使用して続行
+					commentAnalysis = &CommentAnalysis{
+						TotalComments:     0,
+						SurgeKeywordCount: 0,
+						SurgeKeywordRate:  0.0,
+						UniqueUsers:       0,
+					}
+				}
+
+				// スーパーチャット取得
+				superChatAmount, superChatCount, err := getYouTubeSuperChats(vID, 50)
+				if err != nil {
+					log.Printf("スーパーチャット取得エラー (VideoID: %s): %v", vID, err)
+					// エラーでも続行（スーパーチャットは0として扱う）
+				}
+
+				// 現在のスナップショット
+				currentSnapshot := CommentSnapshot{
+					VideoID:      vID,
+					CommentCount: commentAnalysis.TotalComments,
+					ViewerCount:  0, // 必要に応じて取得
+					Timestamp:    time.Now(),
+				}
+
+				// 履歴を取得
+				commentHistoryMutex.RLock()
+				history := commentHistory[vID]
+				commentHistoryMutex.RUnlock()
+
+				// スコア計算
+				metrics := calculateSurgeScore(
+					vID,
+					s.TalentID,
+					currentSnapshot,
+					*commentAnalysis,
+					superChatAmount,
+					superChatCount,
+					history,
+					weightSettings,
+				)
+
+				// 履歴を更新（最新20件を保持）
+				commentHistoryMutex.Lock()
+				history = append(history, currentSnapshot)
+				if len(history) > 20 {
+					history = history[len(history)-20:]
+				}
+				// 30分以上前のデータを削除
+				cutoffTime := time.Now().Add(-30 * time.Minute)
+				filteredHistory := []CommentSnapshot{}
+				for _, h := range history {
+					if h.Timestamp.After(cutoffTime) {
+						filteredHistory = append(filteredHistory, h)
+					}
+				}
+				commentHistory[vID] = filteredHistory
+				commentHistoryMutex.Unlock()
+
+				// キャッシュを更新
+				surgeMetricsMutex.Lock()
+				surgeMetricsCache[vID] = metrics
+				surgeMetricsMutex.Unlock()
+
+				mu.Lock()
+				surgeStreams = append(surgeStreams, metrics)
+				mu.Unlock()
+			}(stream, videoID)
+		}
+
+		wg.Wait()
+
+		// スコア順にソート
+		sort.Slice(surgeStreams, func(i, j int) bool {
+			return surgeStreams[i].SurgeScore > surgeStreams[j].SurgeScore
+		})
+
+		c.JSON(http.StatusOK, gin.H{
+			"streams":    surgeStreams,
+			"updated_at": time.Now(),
+		})
+	})
+
+	// ユーザー重み設定取得API
+	r.GET("/users/:id/surge-weights", func(c *gin.Context) {
+		var user User
+		if err := db.First(&user, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+			return
+		}
+
+		var weightSettings SurgeWeightSettings
+		if err := db.Where("user_id = ?", user.ID).First(&weightSettings).Error; err != nil {
+			// デフォルト値を返す
+			c.JSON(http.StatusOK, SurgeWeightSettings{
+				CommentGrowthWeight: 0.5,
+				KeywordWeight:       0.3,
+				SuperChatWeight:     0.2,
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, weightSettings)
+	})
+
+	// ユーザー重み設定更新API
+	r.PUT("/users/:id/surge-weights", func(c *gin.Context) {
+		var user User
+		if err := db.First(&user, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+			return
+		}
+
+		var updateData struct {
+			CommentGrowthWeight float64 `json:"comment_growth_weight"`
+			KeywordWeight       float64 `json:"keyword_weight"`
+			SuperChatWeight     float64 `json:"super_chat_weight"`
+		}
+
+		if err := c.ShouldBindJSON(&updateData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "入力データが正しくありません: " + err.Error()})
+			return
+		}
+
+		// バリデーション: 重みの合計を確認
+		totalWeight := updateData.CommentGrowthWeight + updateData.KeywordWeight + updateData.SuperChatWeight
+		if totalWeight <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "重みの合計が0以下です"})
+			return
+		}
+
+		// 自動正規化（合計が1.0になるように）
+		if totalWeight != 1.0 {
+			updateData.CommentGrowthWeight /= totalWeight
+			updateData.KeywordWeight /= totalWeight
+			updateData.SuperChatWeight /= totalWeight
+		}
+
+		var weightSettings SurgeWeightSettings
+		if err := db.Where("user_id = ?", user.ID).First(&weightSettings).Error; err != nil {
+			// 新規作成
+			weightSettings = SurgeWeightSettings{
+				UserID:              user.ID,
+				CommentGrowthWeight: updateData.CommentGrowthWeight,
+				KeywordWeight:       updateData.KeywordWeight,
+				SuperChatWeight:     updateData.SuperChatWeight,
+			}
+			if err := db.Create(&weightSettings).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "重み設定の保存に失敗しました"})
+				return
+			}
+		} else {
+			// 更新
+			weightSettings.CommentGrowthWeight = updateData.CommentGrowthWeight
+			weightSettings.KeywordWeight = updateData.KeywordWeight
+			weightSettings.SuperChatWeight = updateData.SuperChatWeight
+			if err := db.Save(&weightSettings).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "重み設定の更新に失敗しました"})
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, weightSettings)
 	})
 
 	r.Run()
