@@ -16,7 +16,21 @@ function App() {
   });
   const [currentUser, setCurrentUser] = useState(() => {
     const storedUser = localStorage.getItem('currentUser');
-    return storedUser ? JSON.parse(storedUser) : null;
+    // 無効な値（null、undefined、空文字列、"undefined"、"null"）をチェック
+    if (!storedUser || storedUser === 'undefined' || storedUser === 'null' || storedUser.trim() === '') {
+      // 無効な値が保存されている場合は削除
+      if (storedUser === 'undefined' || storedUser === 'null') {
+        localStorage.removeItem('currentUser');
+      }
+      return null;
+    }
+    try {
+      return JSON.parse(storedUser);
+    } catch (error) {
+      // パースエラーが発生した場合も無効なデータを削除
+      localStorage.removeItem('currentUser');
+      return null;
+    }
   });
   const [currentScreen, setCurrentScreen] = useState(() => {
     return localStorage.getItem('authToken') ? 'room' : 'auth';

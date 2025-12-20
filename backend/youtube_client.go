@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 )
@@ -17,7 +18,19 @@ var httpClient = &http.Client{
 
 // YouTube API Key取得と検証
 func getYouTubeAPIKey() (string, error) {
+	// #region agent log
 	apiKey := os.Getenv("YOUTUBE_API_KEY")
+	apiKeyLen := len(apiKey)
+	apiKeyPrefix := ""
+	if apiKeyLen > 0 {
+		if apiKeyLen > 10 {
+			apiKeyPrefix = apiKey[:10] + "..."
+		} else {
+			apiKeyPrefix = apiKey
+		}
+	}
+	log.Printf("[DEBUG] getYouTubeAPIKey: apiKey存在=%v, 長さ=%d, プレフィックス=%s", apiKey != "", apiKeyLen, apiKeyPrefix)
+	// #endregion
 	if apiKey == "" {
 		return "", fmt.Errorf("YOUTUBE_API_KEY環境変数が設定されていません")
 	}
@@ -362,10 +375,15 @@ func searchYouTubeVideos(query string, maxResults int) ([]VideoSearchResult, err
 	}
 
 	// Search API: 動画を検索
-	searchURL := fmt.Sprintf(
-		"https://www.googleapis.com/youtube/v3/search?part=snippet&q=%s&type=video&maxResults=%d&key=%s",
-		query, maxResults, apiKey,
-	)
+	// URLエンコードを使用してクエリパラメータを正しくエンコード
+	baseURL := "https://www.googleapis.com/youtube/v3/search"
+	params := url.Values{}
+	params.Set("part", "snippet")
+	params.Set("q", query)
+	params.Set("type", "video")
+	params.Set("maxResults", fmt.Sprintf("%d", maxResults))
+	params.Set("key", apiKey)
+	searchURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
 
 	log.Printf("YouTube Search API呼び出し: Query=%s, MaxResults=%d", query, maxResults)
 	resp, err := httpClient.Get(searchURL)

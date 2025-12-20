@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -78,7 +79,21 @@ func getStreamStatusWithCache(t Talent) (*StreamStatus, error) {
 }
 
 func main() {
-	_ = godotenv.Load()
+	// #region agent log
+	err := godotenv.Load()
+	if err != nil {
+		log.Printf("[DEBUG] godotenv.Load() エラー: %v", err)
+	} else {
+		log.Printf("[DEBUG] godotenv.Load() 成功")
+	}
+	// .envファイルの内容を確認（APIキーの存在のみ）
+	apiKey := os.Getenv("YOUTUBE_API_KEY")
+	if apiKey != "" {
+		log.Printf("[DEBUG] YOUTUBE_API_KEY が読み込まれました (長さ: %d)", len(apiKey))
+	} else {
+		log.Printf("[DEBUG] YOUTUBE_API_KEY が設定されていません")
+	}
+	// #endregion
 
 	dbPath := filepath.Join(".", "user.db")
 	sqlDB, err := sql.Open("sqlite", dbPath)

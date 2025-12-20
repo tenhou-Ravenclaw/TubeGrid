@@ -17,6 +17,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080
 
 const Room = ({ onLogout, userId: propUserId }) => {
   const mainHandleRef = useRef(null);
+  const connectionErrorShownRef = useRef(false); // 接続エラーメッセージを1回だけ表示するためのフラグ
 
   // ユーザーID管理: props > ローカルストレージ > デフォルト値
   const [userId, setUserId] = useState(() => {
@@ -26,10 +27,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
     return null; // 後で最初のユーザーを取得する
   });
 
-  const [mainVid, setMainVid] = useState(() => {
-    // 初期値は後でセッションから更新される
-    return "LIVE_ID_MAIN";
-  });
+  const [mainVid, setMainVid] = useState(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -54,134 +52,28 @@ const Room = ({ onLogout, userId: propUserId }) => {
   const [mainVolume, setMainVolume] = useState(50);
   const playersRef = useRef({}); // {monitorId: YT.Player}
 
-  const INITIAL_SUB_DATA = [
-    {
-      id: "sub1",
-      x: 920,
-      y: 300,
-      vid: "fSAtD36VPhI",
-      rotate: 0,
-      label: "推し1",
-    },
-    {id: "sub2", x: 1370, y: 70, vid: "dQw4w9WgXcQ", rotate: 0, label: "推し2"},
-    {
-      id: "sub3",
-      x: 1800,
-      y: 300,
-      vid: "fSAtD36VPhI",
-      rotate: 0,
-      label: "推し3",
-    },
-    {
-      id: "sub4",
-      x: 860,
-      y: 760,
-      vid: "dQw4w9WgXcQ",
-      rotate: 0,
-      label: "推し4",
-    },
-    {
-      id: "sub5",
-      x: 1850,
-      y: 800,
-      vid: "fSAtD36VPhI",
-      rotate: 0,
-      label: "推し5",
-    },
-  ];
-
-  const INITIAL_SMALL_DATA = [
-    {
-      id: "sm-l1",
-      x: 270,
-      y: 100,
-      rotate: 0,
-      vid: "fSAtD36VPhI",
-      label: "監視 01",
-      isOshi: false,
-    },
-    {
-      id: "sm-l2",
-      x: 600,
-      y: 220,
-      rotate: 0,
-      vid: "dQw4w9WgXcQ",
-      label: "監視 02",
-      isOshi: false,
-    },
-    {
-      id: "sm-l3",
-      x: 320,
-      y: 420,
-      rotate: 0,
-      vid: "fSAtD36VPhI",
-      label: "監視 03",
-      isOshi: false,
-    },
-    {
-      id: "sm-l4",
-      x: 530,
-      y: 660,
-      rotate: 0,
-      vid: "dQw4w9WgXcQ",
-      label: "監視 04",
-      isOshi: false,
-    },
-    {
-      id: "sm-l5",
-      x: 240,
-      y: 860,
-      rotate: 0,
-      vid: "fSAtD36VPhI",
-      label: "監視 05",
-      isOshi: false,
-    },
-    {
-      id: "sm-r1",
-      x: 2630,
-      y: 100,
-      rotate: 0,
-      vid: "dQw4w9WgXcQ",
-      label: "監視 06",
-      isOshi: false,
-    },
-    {
-      id: "sm-r2",
-      x: 2310,
-      y: 220,
-      rotate: 0,
-      vid: "fSAtD36VPhI",
-      label: "監視 07",
-      isOshi: false,
-    },
-    {
-      id: "sm-r3",
-      x: 2560,
-      y: 420,
-      rotate: 0,
-      vid: "dQw4w9WgXcQ",
-      label: "監視 08",
-      isOshi: true,
-    },
-    {
-      id: "sm-r4",
-      x: 2380,
-      y: 660,
-      rotate: 0,
-      vid: "fSAtD36VPhI",
-      label: "監視 09",
-      isOshi: false,
-    },
-    {
-      id: "sm-r5",
-      x: 2650,
-      y: 860,
-      rotate: 0,
-      vid: "dQw4w9WgXcQ",
-      label: "監視 10",
-      isOshi: false,
-    },
-  ];
+  // デフォルト位置の定義（動画がない場合の配置用）
+  const DEFAULT_POSITIONS = {
+    sub: [
+      { x: 920, y: 300, rotate: 0 },
+      { x: 1370, y: 70, rotate: 0 },
+      { x: 1800, y: 300, rotate: 0 },
+      { x: 860, y: 760, rotate: 0 },
+      { x: 1850, y: 800, rotate: 0 },
+    ],
+    small: [
+      { x: 270, y: 100, rotate: 0 },
+      { x: 600, y: 220, rotate: 0 },
+      { x: 320, y: 420, rotate: 0 },
+      { x: 530, y: 660, rotate: 0 },
+      { x: 240, y: 860, rotate: 0 },
+      { x: 2630, y: 100, rotate: 0 },
+      { x: 2310, y: 220, rotate: 0 },
+      { x: 2560, y: 420, rotate: 0 },
+      { x: 2380, y: 660, rotate: 0 },
+      { x: 2650, y: 860, rotate: 0 },
+    ]
+  };
 
   // ユーザーIDが設定されていない場合、最初のユーザーを取得
   useEffect(() => {
@@ -198,8 +90,16 @@ const Room = ({ onLogout, userId: propUserId }) => {
             }
           }
         } catch (err) {
-          console.error('ユーザー取得エラー:', err);
-          setError('ユーザー情報の取得に失敗しました');
+          // バックエンドサーバーが起動していない場合は、エラーを1回だけ表示
+          // ユーザーはログイン後にuserIdが設定されるため、このエラーは無視して問題ない
+          if (err.message && err.message.includes('Failed to fetch')) {
+            if (!connectionErrorShownRef.current) {
+              console.warn('バックエンドサーバーに接続できません。ログイン後にユーザーIDが設定されます。');
+              connectionErrorShownRef.current = true;
+            }
+          } else {
+            console.error('ユーザー取得エラー:', err);
+          }
         }
       };
       fetchFirstUser();
@@ -347,7 +247,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
 
   // メインモニター用のYouTube Player初期化
   useEffect(() => {
-    if (!ytReady || !mainVid || mainVid === "LIVE_ID_MAIN") return;
+    if (!ytReady || !mainVid) return;
 
     const playerId = 'main-youtube-player';
     let player = null;
@@ -406,9 +306,9 @@ const Room = ({ onLogout, userId: propUserId }) => {
   const mapSessionStreamsToMonitors = (session) => {
     if (!session || !session.streams || session.streams.length === 0) {
       return {
-        mainVid: "LIVE_ID_MAIN",
-        subData: INITIAL_SUB_DATA,
-        smallData: INITIAL_SMALL_DATA
+        mainVid: null,
+        subData: [],
+        smallData: []
       };
     }
 
@@ -416,7 +316,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
     
     // メインストリームを取得
     const mainStream = streams.find(s => s.is_main || s.IsMain);
-    const mainVid = mainStream ? (mainStream.video_id || mainStream.VideoID) : "LIVE_ID_MAIN";
+    const mainVid = mainStream ? (mainStream.video_id || mainStream.VideoID) : null;
 
     // サブストリーム（メイン以外の最初の5つ）
     const subStreams = streams
@@ -431,7 +331,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
         
         // レイアウトから位置を取得、なければデフォルト
         const layout = getLayoutForMonitor(monitorId);
-        const defaultSub = INITIAL_SUB_DATA[index] || INITIAL_SUB_DATA[0];
+        const defaultPos = DEFAULT_POSITIONS.sub[index] || DEFAULT_POSITIONS.sub[0];
         
         // 音量プリセットを適用
         const presetVolume = applyVolumePreset(talentId);
@@ -439,10 +339,10 @@ const Room = ({ onLogout, userId: propUserId }) => {
         
         return {
           id: monitorId,
-          x: layout ? (layout.x || layout.X) : defaultSub.x,
-          y: layout ? (layout.y || layout.Y) : defaultSub.y,
+          x: layout ? (layout.x || layout.X) : defaultPos.x,
+          y: layout ? (layout.y || layout.Y) : defaultPos.y,
           vid: videoId,
-          rotate: layout ? (layout.rotate || layout.Rotate) : defaultSub.rotate,
+          rotate: layout ? (layout.rotate || layout.Rotate) : defaultPos.rotate,
           label: title.substring(0, 10) || `配信${index + 1}`,
           streamId: streamId,
           talentId: talentId,
@@ -464,7 +364,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
         
         // レイアウトから位置を取得、なければデフォルト
         const layout = getLayoutForMonitor(monitorId);
-        const defaultSmall = INITIAL_SMALL_DATA[index % INITIAL_SMALL_DATA.length];
+        const defaultPos = DEFAULT_POSITIONS.small[index % DEFAULT_POSITIONS.small.length];
         
         // 音量プリセットを適用
         const presetVolume = applyVolumePreset(talentId);
@@ -472,9 +372,9 @@ const Room = ({ onLogout, userId: propUserId }) => {
         
         return {
           id: monitorId,
-          x: layout ? (layout.x || layout.X) : defaultSmall.x,
-          y: layout ? (layout.y || layout.Y) : defaultSmall.y,
-          rotate: layout ? (layout.rotate || layout.Rotate) : defaultSmall.rotate,
+          x: layout ? (layout.x || layout.X) : defaultPos.x,
+          y: layout ? (layout.y || layout.Y) : defaultPos.y,
+          rotate: layout ? (layout.rotate || layout.Rotate) : defaultPos.rotate,
           vid: videoId,
           label: title.substring(0, 10) || `監視 ${index + 1}`,
           isOshi: isOshi,
@@ -486,16 +386,16 @@ const Room = ({ onLogout, userId: propUserId }) => {
 
     return {
       mainVid,
-      subData: subStreams.length > 0 ? subStreams : INITIAL_SUB_DATA,
-      smallData: smallStreams.length > 0 ? smallStreams : INITIAL_SMALL_DATA
+      subData: subStreams,
+      smallData: smallStreams
     };
   };
 
   // セッションからモニターデータを取得
   const monitorData = currentSession ? mapSessionStreamsToMonitors(currentSession) : {
-    mainVid: "LIVE_ID_MAIN",
-    subData: INITIAL_SUB_DATA,
-    smallData: INITIAL_SMALL_DATA
+    mainVid: null,
+    subData: [],
+    smallData: []
   };
 
   const subData = monitorData.subData;
@@ -578,8 +478,8 @@ const Room = ({ onLogout, userId: propUserId }) => {
 
   // 検索結果から動画をセッションに追加
   const handleAddVideoToSession = async (videoId, title) => {
-    if (!userId || !selectedSessionId) {
-      setError('セッションが選択されていません');
+    if (!userId) {
+      setError('ユーザーIDが設定されていません');
       return;
     }
 
@@ -593,37 +493,86 @@ const Room = ({ onLogout, userId: propUserId }) => {
         throw new Error('動画情報の取得に失敗しました');
       }
       const videoInfo = await videoInfoResponse.json();
+      const videoTitle = title || videoInfo.title || '動画';
 
-      // セッションにストリームを追加
-      const response = await fetch(
-        `${API_BASE_URL}/users/${userId}/sessions/${selectedSessionId}`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            add_streams: [{
-              talent_id: 0, // TODO: チャンネルIDから配信者IDを取得
-              video_id: videoId,
-              stream_url: `https://www.youtube.com/watch?v=${videoId}`,
-              title: title || videoInfo.title || '動画'
-            }]
-          })
-        }
-      );
+      let sessionId = selectedSessionId;
 
-      if (response.ok) {
-        // セッション情報を再取得
-        const sessionResponse = await fetch(
-          `${API_BASE_URL}/users/${userId}/sessions/${selectedSessionId}`
+      // セッションが選択されていない場合、新しいセッションを作成
+      if (!sessionId) {
+        const createResponse = await fetch(
+          `${API_BASE_URL}/users/${userId}/sessions`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              session_name: `セッション ${new Date().toLocaleString('ja-JP')}`,
+              streams: [{
+                talent_id: 0, // TODO: チャンネルIDから配信者IDを取得
+                video_id: videoId,
+                stream_url: `https://www.youtube.com/watch?v=${videoId}`,
+                title: videoTitle
+              }]
+            })
+          }
         );
-        if (sessionResponse.ok) {
-          const sessionData = await sessionResponse.json();
-          setCurrentSession(sessionData);
-          setError(null);
+
+        if (createResponse.ok) {
+          const newSession = await createResponse.json();
+          sessionId = newSession.ID || newSession.id;
+          setSelectedSessionId(sessionId);
+          
+          // セッション一覧を再取得
+          const sessionsResponse = await fetch(`${API_BASE_URL}/users/${userId}/sessions`);
+          if (sessionsResponse.ok) {
+            const sessionsData = await sessionsResponse.json();
+            setSessions(sessionsData || []);
+          }
+
+          // セッション詳細を取得して状態を更新
+          const sessionDetailResponse = await fetch(
+            `${API_BASE_URL}/users/${userId}/sessions/${sessionId}`
+          );
+          if (sessionDetailResponse.ok) {
+            const sessionData = await sessionDetailResponse.json();
+            setCurrentSession(sessionData);
+            setError(null);
+          }
+        } else {
+          const errorData = await createResponse.json();
+          setError(`セッション作成エラー: ${errorData.error || '不明なエラー'}`);
         }
       } else {
-        const errorData = await response.json();
-        setError(`動画追加エラー: ${errorData.error || '不明なエラー'}`);
+        // 既存のセッションにストリームを追加
+        const response = await fetch(
+          `${API_BASE_URL}/users/${userId}/sessions/${sessionId}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              add_streams: [{
+                talent_id: 0, // TODO: チャンネルIDから配信者IDを取得
+                video_id: videoId,
+                stream_url: `https://www.youtube.com/watch?v=${videoId}`,
+                title: videoTitle
+              }]
+            })
+          }
+        );
+
+        if (response.ok) {
+          // セッション情報を再取得
+          const sessionResponse = await fetch(
+            `${API_BASE_URL}/users/${userId}/sessions/${sessionId}`
+          );
+          if (sessionResponse.ok) {
+            const sessionData = await sessionResponse.json();
+            setCurrentSession(sessionData);
+            setError(null);
+          }
+        } else {
+          const errorData = await response.json();
+          setError(`動画追加エラー: ${errorData.error || '不明なエラー'}`);
+        }
       }
     } catch (err) {
       console.error('動画追加エラー:', err);
@@ -882,13 +831,26 @@ const Room = ({ onLogout, userId: propUserId }) => {
           }}
         >
           <div className="screen-inside main-screen">
-            {ytReady && mainVid && mainVid !== "LIVE_ID_MAIN" ? (
-              <div id="main-youtube-player"></div>
+            {mainVid ? (
+              ytReady ? (
+                <div id="main-youtube-player"></div>
+              ) : (
+                <iframe
+                  src={`https://www.youtube.com/embed/${mainVid}`}
+                  frameBorder="0"
+                />
+              )
             ) : (
-              <iframe
-                src={`https://www.youtube.com/embed/${mainVid}`}
-                frameBorder="0"
-              />
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '100%', 
+                color: '#888',
+                fontSize: '18px'
+              }}>
+                動画を選択してください
+              </div>
             )}
           </div>
 
