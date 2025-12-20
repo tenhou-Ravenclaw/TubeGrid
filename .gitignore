@@ -25,3 +25,6 @@ dist-ssr
 *.db
 
 .env
+.venv
+venv
+__pycache__
