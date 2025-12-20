@@ -591,3 +591,24 @@
   height: 100% !important;
   display: block;
 }
+
+.logout-btn {
+  background-color: #fff;
+  color: #ff69b4; /* あくあピンク */
+  border: 2px solid #ff69b4;
+  border-radius: 15px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: absolute;
+  right: 7%;
+  bottom: 2%;
+}
+
+.logout-btn:hover {
+  background-color: #ff69b4;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255, 105, 180, 0.4);
+}

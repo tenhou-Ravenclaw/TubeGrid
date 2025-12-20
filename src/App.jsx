@@ -48,7 +48,11 @@ function App() {
   }
 
   // Room画面
-  return <Room />;
+  return (
+    <Room 
+      onLogout={() => setCurrentScreen('auth')} 
+    />
+  );
 }
 
 export default App;

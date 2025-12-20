@@ -13,17 +13,14 @@ import searchIconImg from "./assets/search-icon.png";
 import youtubeIconImg from "./assets/youtube-icon.png";
 import mainVolumeImg from "./assets/volume-bar.png";
 
-const Room = () => {
-  // ★【重要】React 18のエラーを防ぐためのつまみ専用Ref
+const Room = ({ onLogout }) => {
   const mainHandleRef = useRef(null);
 
-  // --- 1. 状態管理（State） ---
   const [mainVid, setMainVid] = useState("LIVE_ID_MAIN");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
 
-  // --- 2. 初期データ（略） ---
   const INITIAL_SUB_DATA = [
     {
       id: "sub1",
@@ -156,22 +153,15 @@ const Room = () => {
   const subData = INITIAL_SUB_DATA;
   const smallData = INITIAL_SMALL_DATA;
 
-  // --- 3. ロジック（略） ---
   const swapVideo = (id, type) => {
     const oldMainVid = mainVid;
     let targetVid = "";
     if (type === "sub") {
       const target = subData.find((s) => s.id === id);
       targetVid = target.vid;
-      setSubData(
-        subData.map((s) => (s.id === id ? {...s, vid: oldMainVid} : s))
-      );
     } else {
       const target = smallData.find((s) => s.id === id);
       targetVid = target.vid;
-      setSmallData(
-        smallData.map((s) => (s.id === id ? {...s, vid: oldMainVid} : s))
-      );
     }
     setMainVid(targetVid);
   };
@@ -183,7 +173,6 @@ const Room = () => {
 
   return (
     <div className="world-wrapper">
-      {/* メニューボタン */}
       <button
         className="menu-trigger"
         onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -191,7 +180,6 @@ const Room = () => {
         <img src={menuIconImg} alt="menu" />
       </button>
 
-      {/* スライドパネル */}
       <div className={`search-panel ${isMenuOpen ? "open" : ""}`}>
         <div className="search-container">
           <div className="search-logo">
@@ -210,6 +198,7 @@ const Room = () => {
             </button>
           </div>
         </div>
+        
         <div className="search-results-list">
           {searchResults.map((video) => (
             <div
@@ -232,6 +221,12 @@ const Room = () => {
             </div>
           ))}
         </div>
+        
+        <div className="panel-footer">
+          <button className="logout-btn" onClick={onLogout}>
+            ログアウト
+          </button>
+        </div>
       </div>
 
       <div className="world">
@@ -251,14 +246,12 @@ const Room = () => {
           />
         ))}
 
-        {/* --- メインモニター --- */}
         <div
           className="monitor-group main-fixed"
           style={{
             left: "1150px",
             top: "300px",
             position: "absolute",
-            // width: "1000px" ← CSSの !important を効かせるため、ここを削除または 800px 等に下げる
             width: "800px",
           }}
         >
@@ -285,7 +278,6 @@ const Room = () => {
                 style={{width: "100%", pointerEvents: "none"}}
               />
 
-              {/* ★【修正】メインのつまみにも nodeRef を指定 */}
               <Draggable
                 nodeRef={mainHandleRef}
                 axis="x"
