@@ -11,6 +11,7 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
   const [volume, setVolume] = useState(propVolume);
   const playerRef = useRef(null);
   const [volumePosition, setVolumePosition] = useState({ x: 50, y: 0 });
+  const [isPlaying, setIsPlaying] = useState(true); // 再生状態を追跡
   
   // クリック/ホールド検出用
   const holdTimerRef = useRef(null);
@@ -72,8 +73,32 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
     }
   }, [volume]);
 
+  // 再生状態の更新
+  useEffect(() => {
+    if (!playerRef.current) return;
+
+    const updatePlayState = () => {
+      try {
+        const state = playerRef.current.getPlayerState();
+        // 1: 再生中, 2: 一時停止中, 3: バッファリング中, 5: 動画終了
+        setIsPlaying(state === 1 || state === 3);
+      } catch (error) {
+        console.error('再生状態取得エラー:', error);
+      }
+    };
+
+    // 定期的に再生状態を更新（500msごと）
+    const interval = setInterval(updatePlayState, 500);
+    updatePlayState(); // 初回実行
+
+    return () => clearInterval(interval);
+  }, [playerRef.current]);
+
   // 再生・一時停止の切り替え
-  const togglePlayPause = () => {
+  const togglePlayPause = (e) => {
+    if (e) {
+      e.stopPropagation();
+    }
     if (!playerRef.current) return;
     
     try {
@@ -81,8 +106,10 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
       // 1: 再生中, 2: 一時停止中, 3: バッファリング中, 5: 動画終了
       if (state === 1) {
         playerRef.current.pauseVideo();
+        setIsPlaying(false);
       } else {
         playerRef.current.playVideo();
+        setIsPlaying(true);
       }
     } catch (error) {
       console.error('再生制御エラー:', error);
@@ -215,6 +242,13 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
               ×
             </button>
           )}
+          <button
+            className="monitor-play-pause-btn"
+            onClick={togglePlayPause}
+            title={isPlaying ? "一時停止" : "再生"}
+          >
+            {isPlaying ? "⏸" : "▶"}
+          </button>
           <div className="screen-inside sub-screen">
             {window.YT && window.YT.Player && videoId ? (
               <div id={`sub-player-${id}`} style={{ width: '100%', height: '100%' }}></div>

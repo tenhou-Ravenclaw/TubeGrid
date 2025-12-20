@@ -23,6 +23,7 @@ const SmallMonitor = ({
   const [volume, setVolume] = useState(propVolume);
   const playerRef = useRef(null);
   const [volumePosition, setVolumePosition] = useState({ x: 40, y: 0 });
+  const [isPlaying, setIsPlaying] = useState(true); // 再生状態を追跡
   
   // クリック/ホールド検出用
   const holdTimerRef = useRef(null);
@@ -90,8 +91,32 @@ const SmallMonitor = ({
     }
   }, [volume]);
 
+  // 再生状態の更新
+  useEffect(() => {
+    if (!playerRef.current) return;
+
+    const updatePlayState = () => {
+      try {
+        const state = playerRef.current.getPlayerState();
+        // 1: 再生中, 2: 一時停止中, 3: バッファリング中, 5: 動画終了
+        setIsPlaying(state === 1 || state === 3);
+      } catch (error) {
+        console.error('再生状態取得エラー:', error);
+      }
+    };
+
+    // 定期的に再生状態を更新（500msごと）
+    const interval = setInterval(updatePlayState, 500);
+    updatePlayState(); // 初回実行
+
+    return () => clearInterval(interval);
+  }, [playerRef.current]);
+
   // 再生・一時停止の切り替え
-  const togglePlayPause = () => {
+  const togglePlayPause = (e) => {
+    if (e) {
+      e.stopPropagation();
+    }
     if (!playerRef.current) return;
     
     try {
@@ -99,8 +124,10 @@ const SmallMonitor = ({
       // 1: 再生中, 2: 一時停止中, 3: バッファリング中, 5: 動画終了
       if (state === 1) {
         playerRef.current.pauseVideo();
+        setIsPlaying(false);
       } else {
         playerRef.current.playVideo();
+        setIsPlaying(true);
       }
     } catch (error) {
       console.error('再生制御エラー:', error);
@@ -244,6 +271,13 @@ const SmallMonitor = ({
               ×
             </button>
           )}
+          <button
+            className="monitor-play-pause-btn small"
+            onClick={togglePlayPause}
+            title={isPlaying ? "一時停止" : "再生"}
+          >
+            {isPlaying ? "⏸" : "▶"}
+          </button>
           {isOshi && <div className="oshi-badge small">推し</div>}
 
           <div className="screen-inside small-screen">
