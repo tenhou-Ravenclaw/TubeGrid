@@ -1,4 +1,4 @@
-import React, {useRef, useState, useEffect} from "react";
+import React, { useRef, useState, useEffect } from "react";
 import Draggable from "react-draggable";
 import "./Room.css";
 import roomImg from "./assets/room.png";
@@ -33,24 +33,29 @@ const Room = ({ onLogout, userId: propUserId }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
+
   // セッション管理
   const [sessions, setSessions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
-  
+
   // ルームレイアウト管理
   const [roomLayouts, setRoomLayouts] = useState([]);
   const [layoutLoaded, setLayoutLoaded] = useState(false);
-  
+
   // 音量プリセット管理
   const [volumePresets, setVolumePresets] = useState([]);
-  
+
   // YouTube Player管理
   const [ytReady, setYtReady] = useState(false);
   const mainPlayerRef = useRef(null);
   const [mainVolume, setMainVolume] = useState(50);
   const playersRef = useRef({}); // {monitorId: YT.Player}
+
+  // 画面サイズに応じたスケール管理
+  const [worldScale, setWorldScale] = useState(1);
+  const worldRef = useRef(null);
+  const worldWrapperRef = useRef(null);
 
   // デフォルト位置の定義（動画がない場合の配置用）
   const DEFAULT_POSITIONS = {
@@ -118,7 +123,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
         if (response.ok) {
           const data = await response.json();
           setSessions(data || []);
-          
+
           // アクティブセッションを自動選択
           const activeSession = data.find(s => s.is_active || s.IsActive);
           if (activeSession) {
@@ -155,7 +160,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
         if (response.ok) {
           const data = await response.json();
           setCurrentSession(data);
-          
+
           // セッションから動画IDを更新
           const streams = data.streams || data.Streams || [];
           const mainStream = streams.find(s => s.is_main || s.IsMain);
@@ -224,7 +229,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
 
   // 音量プリセットの適用
   const applyVolumePreset = (talentId) => {
-    const preset = volumePresets.find(p => 
+    const preset = volumePresets.find(p =>
       (p.talent_id || p.TalentID) === talentId
     );
     return preset ? (preset.volume || preset.Volume || 50) : 50;
@@ -295,9 +300,48 @@ const Room = ({ onLogout, userId: propUserId }) => {
     }
   }, [mainVolume]);
 
+  // 画面サイズに応じて.worldをスケール
+  useEffect(() => {
+    const updateScale = () => {
+      if (!worldRef.current) return;
+
+      const worldWidth = 3213; // 元の幅
+      const worldHeight = 1357; // 元の高さ
+
+      // 利用可能な領域を計算（検索パネルの幅を考慮）
+      const availableWidth = window.innerWidth - (isMenuOpen ? 380 : 0);
+      const availableHeight = window.innerHeight;
+
+      // 幅と高さの両方に収まるスケールを計算
+      const scaleX = availableWidth / worldWidth;
+      const scaleY = availableHeight / worldHeight;
+      const scale = Math.min(scaleX, scaleY); // 1を超えても良い（画面が大きい場合）
+
+      setWorldScale(scale);
+
+      // .world要素を中央配置（スケール後のサイズを考慮）
+      const scaledWidth = worldWidth * scale;
+      const scaledHeight = worldHeight * scale;
+      const left = (availableWidth - scaledWidth) / 2;
+      const top = (availableHeight - scaledHeight) / 2;
+
+      if (worldRef.current) {
+        worldRef.current.style.left = `${left}px`;
+        worldRef.current.style.top = `${top}px`;
+      }
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+
+    return () => {
+      window.removeEventListener('resize', updateScale);
+    };
+  }, [isMenuOpen]);
+
   // レイアウトデータからモニター位置を取得
   const getLayoutForMonitor = (monitorId) => {
-    return roomLayouts.find(layout => 
+    return roomLayouts.find(layout =>
       (layout.monitor_id || layout.MonitorID) === monitorId
     );
   };
@@ -313,7 +357,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
     }
 
     const streams = session.streams || session.Streams || [];
-    
+
     // メインストリームを取得
     const mainStream = streams.find(s => s.is_main || s.IsMain);
     const mainVid = mainStream ? (mainStream.video_id || mainStream.VideoID) : null;
@@ -328,15 +372,15 @@ const Room = ({ onLogout, userId: propUserId }) => {
         const title = stream.title || stream.Title || '';
         const talentId = stream.talent_id || stream.TalentID;
         const monitorId = `sub-${streamId}`;
-        
+
         // レイアウトから位置を取得、なければデフォルト
         const layout = getLayoutForMonitor(monitorId);
         const defaultPos = DEFAULT_POSITIONS.sub[index] || DEFAULT_POSITIONS.sub[0];
-        
+
         // 音量プリセットを適用
         const presetVolume = applyVolumePreset(talentId);
         const streamVolume = stream.volume || stream.Volume || presetVolume;
-        
+
         return {
           id: monitorId,
           x: layout ? (layout.x || layout.X) : defaultPos.x,
@@ -361,15 +405,15 @@ const Room = ({ onLogout, userId: propUserId }) => {
         const talentId = stream.talent_id || stream.TalentID;
         const isOshi = false; // TODO: 推し情報を取得
         const monitorId = `sm-${streamId}`;
-        
+
         // レイアウトから位置を取得、なければデフォルト
         const layout = getLayoutForMonitor(monitorId);
         const defaultPos = DEFAULT_POSITIONS.small[index % DEFAULT_POSITIONS.small.length];
-        
+
         // 音量プリセットを適用
         const presetVolume = applyVolumePreset(talentId);
         const streamVolume = stream.volume || stream.Volume || presetVolume;
-        
+
         return {
           id: monitorId,
           x: layout ? (layout.x || layout.X) : defaultPos.x,
@@ -417,7 +461,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
     layoutSaveTimers.current[monitorId] = setTimeout(async () => {
       try {
         // 既存のレイアウトを確認
-        const existingLayout = roomLayouts.find(l => 
+        const existingLayout = roomLayouts.find(l =>
           (l.monitor_id || l.MonitorID) === monitorId
         );
 
@@ -448,8 +492,8 @@ const Room = ({ onLogout, userId: propUserId }) => {
           );
           if (response.ok) {
             // ローカル状態を更新
-            setRoomLayouts(prev => prev.map(l => 
-              (l.monitor_id || l.MonitorID) === monitorId 
+            setRoomLayouts(prev => prev.map(l =>
+              (l.monitor_id || l.MonitorID) === monitorId
                 ? { ...l, ...layoutData }
                 : l
             ));
@@ -520,7 +564,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
           const newSession = await createResponse.json();
           sessionId = newSession.ID || newSession.id;
           setSelectedSessionId(sessionId);
-          
+
           // セッション一覧を再取得
           const sessionsResponse = await fetch(`${API_BASE_URL}/users/${userId}/sessions`);
           if (sessionsResponse.ok) {
@@ -588,7 +632,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
     const oldMainVid = mainVid;
     let targetVid = "";
     let targetStreamId = null;
-    
+
     if (type === "sub") {
       const target = subData.find((s) => s.id === id);
       if (!target) return;
@@ -669,7 +713,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
   };
 
   return (
-    <div className="world-wrapper">
+    <div className="world-wrapper" ref={worldWrapperRef}>
       <button
         className="menu-trigger"
         onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -735,7 +779,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
             </div>
           )}
         </div>
-        
+
         <div className="search-results-list">
           {loading && (
             <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>
@@ -787,7 +831,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
             );
           })}
         </div>
-        
+
         <div className="panel-footer">
           <button className="logout-btn" onClick={onLogout}>
             ログアウト
@@ -795,12 +839,18 @@ const Room = ({ onLogout, userId: propUserId }) => {
         </div>
       </div>
 
-      <div className="world">
+      <div
+        className="world"
+        ref={worldRef}
+        style={{
+          transform: `scale(${worldScale})`,
+        }}
+      >
         <img src={roomImg} className="bg-layer" draggable="false" />
         <img
           src={monitorArmImg}
           className="part-arm"
-          style={{position: "absolute"}}
+          style={{ position: "absolute" }}
         />
 
         {subData.map((data) => (
@@ -841,11 +891,11 @@ const Room = ({ onLogout, userId: propUserId }) => {
                 />
               )
             ) : (
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                height: '100%', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
                 color: '#888',
                 fontSize: '18px'
               }}>
@@ -867,14 +917,14 @@ const Room = ({ onLogout, userId: propUserId }) => {
               <img
                 src={mainVolumeImg}
                 alt="main-volume"
-                style={{width: "100%", pointerEvents: "none"}}
+                style={{ width: "100%", pointerEvents: "none" }}
               />
 
               <Draggable
                 nodeRef={mainHandleRef}
                 axis="x"
                 bounds="parent"
-                defaultPosition={{x: 100, y: 0}}
+                defaultPosition={{ x: 100, y: 0 }}
                 onDrag={(e, data) => {
                   // 音量スライダーの位置から音量を計算（0-100）
                   const parentWidth = data.node.parentElement.offsetWidth;
