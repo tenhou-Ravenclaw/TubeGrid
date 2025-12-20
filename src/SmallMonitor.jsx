@@ -1,13 +1,22 @@
-// SmallMonitor.jsx
-import React, { useRef, useEffect, useState } from "react";
+import React, {useRef, useEffect, useState} from "react";
 import Draggable from "react-draggable";
+import subVolumeImg from "./assets/subVolume-bar.png";
 
-// props に id, vid (defaultVidから変更), onSwap, isOshi, label を追加
-const SmallMonitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label }) => {
-  const nodeRef = useRef(null);
+const SmallMonitor = ({
+  id,
+  x,
+  y,
+  rotate,
+  vid,
+  frameImg,
+  onSwap,
+  isOshi,
+  label,
+}) => {
+  const nodeRef = useRef(null); // 本体用
+  const handleRef = useRef(null); // つまみ用
   const [videoId, setVideoId] = useState(vid);
 
-  // メインモニターとの入れ替え（vidの変更）を検知して画面を更新
   useEffect(() => {
     setVideoId(vid);
   }, [vid]);
@@ -23,17 +32,16 @@ const SmallMonitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label }
     <Draggable nodeRef={nodeRef}>
       <div
         ref={nodeRef}
-        // 推しなら .oshi-focus クラスを付与
-        className={`monitor-draggable-wrapper small-monitor ${isOshi ? "oshi-focus" : ""}`}
+        className={`monitor-draggable-wrapper small-monitor ${
+          isOshi ? "oshi-focus" : ""
+        }`}
         style={{
           position: "absolute",
           left: `${x}px`,
           top: `${y}px`,
-          width: "300px", 
-          // 推しなら少し手前に、通常ならサブモニター(100)より背面に
-          zIndex: isOshi ? 150 : 80, 
+          width: "300px",
+          zIndex: isOshi ? 150 : 80,
         }}
-        // ★ダブルクリックで入れ替え実行
         onDoubleClick={onSwap}
       >
         <div
@@ -46,7 +54,6 @@ const SmallMonitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label }
             transformOrigin: "center center",
           }}
         >
-          {/* ★推しバッジ（小さいモニター用スタイル） */}
           {isOshi && <div className="oshi-badge small">推し</div>}
 
           <div className="screen-inside small-screen">
@@ -55,7 +62,6 @@ const SmallMonitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label }
               frameBorder="0"
               title={`small-${id}`}
             />
-            {/* 識別ラベル */}
             <div className="monitor-label small-label">{label}</div>
           </div>
           <img
@@ -64,6 +70,34 @@ const SmallMonitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label }
             draggable="false"
             alt="small-frame"
           />
+
+          {/* 音量バーエリア */}
+          <div className="volume-overlay small-volume">
+            <div
+              style={{
+                position: "relative",
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <img
+                src={subVolumeImg}
+                alt="volume-bar"
+                className="volume-bar-img"
+                style={{width: "100%"}}
+              />
+              <Draggable
+                nodeRef={handleRef}
+                axis="x"
+                bounds="parent"
+                defaultPosition={{x: 40, y: 0}}
+                onStart={(e) => e.stopPropagation()}
+              >
+                <div ref={handleRef} className="volume-handle" />
+              </Draggable>
+            </div>
+          </div>
         </div>
       </div>
     </Draggable>

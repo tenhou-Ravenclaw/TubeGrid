@@ -1,4 +1,5 @@
 import React, {useRef, useState} from "react";
+import Draggable from "react-draggable";
 import "./Room.css";
 import roomImg from "./assets/room.png";
 import monitorFrameImg from "./assets/main-monitor-frame.png";
@@ -13,13 +14,16 @@ import youtubeIconImg from "./assets/youtube-icon.png";
 import mainVolumeImg from "./assets/volume-bar.png";
 
 const Room = () => {
+  // ★【重要】React 18のエラーを防ぐためのつまみ専用Ref
+  const mainHandleRef = useRef(null);
+
   // --- 1. 状態管理（State） ---
   const [mainVid, setMainVid] = useState("LIVE_ID_MAIN");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
 
-  // --- 2. 初期データ（バックエンド連携の土台） ---
+  // --- 2. 初期データ（略） ---
   const INITIAL_SUB_DATA = [
     {
       id: "sub1",
@@ -128,7 +132,7 @@ const Room = () => {
       vid: "dQw4w9WgXcQ",
       label: "監視 08",
       isOshi: true,
-    }, // ここ推し！
+    },
     {
       id: "sm-r4",
       x: 2380,
@@ -152,11 +156,10 @@ const Room = () => {
   const [subData, setSubData] = useState(INITIAL_SUB_DATA);
   const [smallData, setSmallData] = useState(INITIAL_SMALL_DATA);
 
-  // --- 3. ロジック（STEP 4: 入れ替え機能） ---
+  // --- 3. ロジック（略） ---
   const swapVideo = (id, type) => {
     const oldMainVid = mainVid;
     let targetVid = "";
-
     if (type === "sub") {
       const target = subData.find((s) => s.id === id);
       targetVid = target.vid;
@@ -176,7 +179,6 @@ const Room = () => {
   const handleSearch = async () => {
     if (!searchQuery) return;
     console.log("バックエンド：APIを叩いてください:", searchQuery);
-    // API連携はここ
   };
 
   return (
@@ -208,7 +210,6 @@ const Room = () => {
             </button>
           </div>
         </div>
-
         <div className="search-results-list">
           {searchResults.map((video) => (
             <div
@@ -241,7 +242,6 @@ const Room = () => {
           style={{position: "absolute"}}
         />
 
-        {/* サブモニター群 */}
         {subData.map((data) => (
           <Monitor
             key={data.id}
@@ -251,22 +251,55 @@ const Room = () => {
           />
         ))}
 
-        {/* メインモニター */}
+        {/* --- メインモニター --- */}
         <div
           className="monitor-group main-fixed"
-          style={{left: "1200px", top: "350px", position: "absolute"}}
+          style={{
+            left: "1150px",
+            top: "300px",
+            position: "absolute",
+            // width: "1000px" ← CSSの !important を効かせるため、ここを削除または 800px 等に下げる
+            width: "800px",
+          }}
         >
           <div className="screen-inside main-screen">
-            <iframe src={`https://www.youtube.com/embed/${mainVid}`} />
+            <iframe
+              src={`https://www.youtube.com/embed/${mainVid}`}
+              frameBorder="0"
+            />
           </div>
+
           <div className="volume-overlay main-volume">
-            <img src={mainVolumeImg} alt="main-volume" />
+            <div
+              style={{
+                position: "relative",
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <img
+                src={mainVolumeImg}
+                alt="main-volume"
+                style={{width: "100%", pointerEvents: "none"}}
+              />
+
+              {/* ★【修正】メインのつまみにも nodeRef を指定 */}
+              <Draggable
+                nodeRef={mainHandleRef}
+                axis="x"
+                bounds="parent"
+                defaultPosition={{x: 100, y: 0}}
+              >
+                <div ref={mainHandleRef} className="volume-handle" />
+              </Draggable>
+            </div>
           </div>
           <img src={monitorFrameImg} className="part-frame" />
           <div className="monitor-label">MAIN</div>
         </div>
 
-        {/* 小さいモニター群 */}
         {smallData.map((data) => (
           <SmallMonitor
             key={data.id}

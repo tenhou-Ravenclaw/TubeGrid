@@ -16,8 +16,14 @@
   height: 1357px;
   position: relative;
   /* 文字としての隙間を根本から消す設定 */
-  line-height: 0; 
+  line-height: 0;
   font-size: 0;
+}
+
+.world .main-fixed {
+  width: 800px !important;  /* 1000pxでも大きい場合は 800px にしてください */
+  height: 450px !important; /* 高さを明示的に指定すると安定します */
+  z-index: 500 !important;
 }
 
 .bg-layer {
@@ -29,7 +35,7 @@
   z-index: 1;
   pointer-events: none;
   /* display: block にするだけで、ほとんどの隙間は消えます */
-  display: block; 
+  display: block;
 }
 /* モニターの設定 */
 .monitor {
@@ -65,11 +71,8 @@
 
 .monitor-group {
   position: relative;
-  width: 800px;
-  height: 600px; /* ★高さを指定するか、中身に合わせる */
-  cursor: grab;
-  z-index: 100; /* ★背景(z-index: 1)より確実に手前に出す */
-  transition: transform 0.2s ease; /* 斜めにする時に滑らかに動く */
+  width: 100% !important; 
+  height: auto;
 }
 
 /* 枠とアームの画像が重なるように設定 */
@@ -105,11 +108,13 @@
 }
 
 .main-screen {
-  top: 22%;
-  left: 16%;
-  width: 76%;
-  height: 62%;
-  background: #000000;
+  position: absolute;
+  top: 20%;    /* ピンクの枠の内側にくるように微調整 */
+  left: 15%;   /* ピンクの枠の内側にくるように微調整 */
+  width: 70%;  /* ピンクの枠の内側にくるように微調整 */
+  height: 55%; /* ピンクの枠の内側にくるように微調整 */
+  background: #000;
+  z-index: 20;
 }
 
 .sub-screen {
@@ -131,8 +136,8 @@
 /* 左上の回転ハンドル */
 .rotate-handle {
   position: absolute;
-  top: -20px;   /* 枠の外に出して掴みやすく */
-  left: -20px;  /* 左上に固定 */
+  top: -20px; /* 枠の外に出して掴みやすく */
+  left: -20px; /* 左上に固定 */
   width: 40px;
   height: 40px;
   background: #ff69b4;
@@ -161,13 +166,22 @@
 
 /* メインモニター全体の重なり (一番上) */
 .main-fixed {
-  z-index: 500 !important; /* サブ(100)より大きく */
+  width: 1000px !important;  /* ここを 800px ~ 1000px くらいで調整してください */
+  height: auto;
+  position: absolute;
+  z-index: 500 !important;
 }
 
 /* サブモニター全体の重なり (中間) */
 /* Monitor.jsx でラップしている div または .monitor-draggable-wrapper に適用 */
 .monitor-draggable-wrapper {
-  z-index: 100;
+  width: 500px !important; /* 強制的にサイズを戻す */
+  height: auto;
+}
+
+/* 小さいモニターのサイズ固定 */
+.monitor-draggable-wrapper.small-monitor {
+  width: 300px !important;
 }
 
 /* モニターアーム (サブモニターより下) */
@@ -180,13 +194,17 @@
 }
 
 /* 補足：モニター内の重なり順は今のままでOK */
-.part-frame { z-index: 30; }   /* モニター自体の枠 */
-.screen-inside { z-index: 20; } /* モニターの中の画面 */
+.part-frame {
+  z-index: 30;
+} /* モニター自体の枠 */
+.screen-inside {
+  z-index: 20;
+} /* モニターの中の画面 */
 
 .small-screen {
   position: absolute;
   /* 小さいモニターの枠の形に合わせて数値を調整してください */
-  top: 4px; 
+  top: 4px;
   left: 4px;
   width: 292px;
   height: 168px;
@@ -219,7 +237,7 @@
   width: 300px;
   height: 100vh;
   background: rgba(255, 255, 255, 0.95);
-  box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+  box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
   transition: right 0.3s ease;
   z-index: 1500;
   padding: 80px 20px 20px;
@@ -238,7 +256,7 @@
   width: 380px;
   height: 100vh;
   background: #ffffff;
-  box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
   transition: right 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   z-index: 1500;
   display: flex;
@@ -266,7 +284,7 @@
   border-radius: 40px; /* YouTube風の深い角丸 */
   height: 40px;
   overflow: hidden;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .search-bar input {
@@ -362,9 +380,9 @@
 /* 1. モニターの外側をじわ〜っと光らせる（オーラ） */
 .oshi-focus .monitor-group {
   /* 外側にピンクの光を重ねる */
-  box-shadow: 0 0 20px 5px rgba(255, 105, 180, 0.7), 
-              0 0 40px 10px rgba(255, 20, 147, 0.4);
-  
+  box-shadow: 0 0 20px 5px rgba(255, 105, 180, 0.7),
+    0 0 40px 10px rgba(255, 20, 147, 0.4);
+
   border: 3px solid #ff69b4; /* 枠自体も少しピンクに */
   border-radius: 8px;
 
@@ -398,16 +416,20 @@
   font-size: 14px;
   z-index: 200;
   border: 2px solid #fff;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
   line-height: 1.5; /* 文字が消えないように調整 */
-  
+
   /* グラデーションを流してキラキラさせる */
   animation: badge-shine 3s linear infinite;
 }
 
 @keyframes badge-shine {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
 }
 
 /* 小さいモニター用のバッジ微調整 */
@@ -421,20 +443,29 @@
 /* 音量バー共通の土台（右下に配置） */
 .volume-overlay {
   position: absolute;
-  /* 枠の右下ギリギリに配置 */
-  bottom: 20px;   
-  right: 20px;    
-  /* ★ 枠(z-index: 30)よりも上に重ねる */
-  z-index: 100; 
+  /* 枠（part-frame）の右下からの距離を調整 */
+  bottom: 15%; 
+  right: 8%;
+  
+  width: 140px; /* バーの長さ */
+  height: 24px;
+  z-index: 100; /* フレーム画像(30)より手前に表示 */
+  
+  /* 初期状態は透明（ホバーで表示したい場合） */
   opacity: 0;
   transform: translateY(5px);
   transition: all 0.3s ease;
-  pointer-events: none;
+  
+  /* ★重要：これがないと中の「つまみ」が操作できません */
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
 }
+
 .volume-overlay img {
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
 
 /* --- STEP 6: ホバーした時だけ表示 --- */
@@ -447,11 +478,26 @@
    ホバーしたモニターだけが「明るく」「光り」「音量バーが出る」ようになります */
 
 /* メインモニター用（少し大きめ） */
+/* --- [1] メインモニター用 (猫耳枠に合わせて調整) --- */
 .main-volume {
-  width: 220px; 
-  right: 15px;
+  width: 200px;   /* メインは大きいのでバーも長く */
+  bottom: -16%;    /* 下からの位置 */
+  right: 8%;     /* 右からの位置 */
 }
 
+/* --- [2] サブモニター用 (500px幅の枠に合わせて調整) --- */
+.sub-volume {
+  width: 140px;
+  top: -14%; 
+  left: 12%;
+}
+
+/* --- [3] 監視用（小さい）モニター用 (300px幅に合わせる) --- */
+.small-volume {
+  width: 100px;   /* 小さいのでバーも短く */
+  bottom: -30%;
+  left: 1%;
+}
 /* サブモニター用（Monitor.jsx / SmallMonitor.jsx で使うクラス） */
 /* サブモニター用 */
 .sub-volume {
@@ -463,7 +509,9 @@
 .volume-overlay img {
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.7)); /* 映像で見えやすくする影 */
+  filter: drop-shadow(
+    0 2px 5px rgba(0, 0, 0, 0.7)
+  ); /* 映像で見えやすくする影 */
 }
 
 /* --- マウスを乗せた時だけ表示 --- */
@@ -491,9 +539,55 @@
   transform: translateY(-50%); /* 縦方向の中央合わせ */
   cursor: pointer;
   z-index: 110; /* バー(100)より上に置く */
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .volume-handle:active {
   background-color: #ff69b4; /* 掴んでいる間は色を変える */
+}
+
+/* つまみの丸 */
+.volume-handle {
+  width: 16px;
+  height: 16px;
+  background-color: #ffffff;
+  border: 2px solid #ff69b4;
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  margin-top: -8px; /* 上下中央 */
+  cursor: pointer;
+  z-index: 110;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.volume-handle:active {
+  background-color: #ff69b4;
+}
+
+.main-fixed .part-frame {
+  width: 100% !important;   /* 親の1000pxに合わせる */
+  height: auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.main-fixed .main-screen {
+  position: absolute;
+  /* ピンクの猫耳フレームの「穴」の位置に強制的に合わせる */
+  top: 29% !important;    /* ズレていたので少し上に調整 */
+  left: 16% !important;   /* 左側の余白調整 */
+  width: 76% !important;  /* 横幅を広げる */
+  height: 83% !important; /* 高さを伸ばして、下の白背景を埋める */
+  z-index: 20;
+  background: #000;
+  border-radius: 10px;    /* 枠に合わせて少し丸くすると綺麗です */
+  overflow: hidden;
+}
+
+.main-fixed .main-screen iframe {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
 }
