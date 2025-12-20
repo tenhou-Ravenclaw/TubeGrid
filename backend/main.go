@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -44,7 +45,7 @@ func main() {
 		log.Fatalf("GORMの初期化に失敗しました: %v", err)
 	}
 	log.Println("データベース接続成功")
-	db.AutoMigrate(&User{}, &Talent{}, &Group{})
+	db.AutoMigrate(&User{}, &Talent{}, &Group{}, &RoomLayout{})
 
 	r := gin.Default()
 
@@ -81,6 +82,16 @@ func main() {
 			return
 		}
 		c.JSON(http.StatusOK, newUser)
+	})
+
+	// ユーザー一覧取得
+	r.GET("/users", func(c *gin.Context) {
+		var users []User
+		if err := db.Find(&users).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ユーザーの取得に失敗しました"})
+			return
+		}
+		c.JSON(http.StatusOK, users)
 	})
 
 	// 配信者登録
@@ -464,6 +475,133 @@ func main() {
 			"default_volume": user.DefaultVolume,
 			"layout_setting": user.LayoutSetting,
 		})
+	})
+
+	// ルームレイアウト取得
+	r.GET("/users/:id/room-layout", func(c *gin.Context) {
+		var user User
+		if err := db.First(&user, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+			return
+		}
+
+		var layouts []RoomLayout
+		if err := db.Where("user_id = ?", c.Param("id")).Find(&layouts).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "レイアウトの取得に失敗しました"})
+			return
+		}
+		c.JSON(http.StatusOK, layouts)
+	})
+
+	// ルームレイアウト保存（既存を削除して新規保存）
+	r.POST("/users/:id/room-layout", func(c *gin.Context) {
+		var user User
+		if err := db.First(&user, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+			return
+		}
+
+		var layouts []RoomLayout
+		if err := c.ShouldBindJSON(&layouts); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		userID := c.Param("id")
+		// 既存のレイアウトを削除
+		if err := db.Where("user_id = ?", userID).Delete(&RoomLayout{}).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "既存レイアウトの削除に失敗しました"})
+			return
+		}
+
+		// 新しいレイアウトを保存
+		for i := range layouts {
+			var userIDUint uint
+			fmt.Sscanf(userID, "%d", &userIDUint)
+			layouts[i].UserID = userIDUint
+		}
+		if err := db.Create(&layouts).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "レイアウトの保存に失敗しました"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "レイアウトを保存しました", "layouts": layouts})
+	})
+
+	// 特定モニターのレイアウト更新
+	r.PUT("/users/:id/room-layout/:monitor_id", func(c *gin.Context) {
+		var user User
+		if err := db.First(&user, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+			return
+		}
+
+		var layout RoomLayout
+		if err := db.Where("user_id = ? AND monitor_id = ?", c.Param("id"), c.Param("monitor_id")).First(&layout).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "レイアウトが見つかりません"})
+			return
+		}
+
+		var updateData RoomLayout
+		if err := c.ShouldBindJSON(&updateData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "入力データが正しくありません: " + err.Error()})
+			return
+		}
+
+		// 更新可能なフィールドを更新（UserIDとMonitorIDは変更不可）
+		layout.VideoID = updateData.VideoID
+		layout.X = updateData.X
+		layout.Y = updateData.Y
+		layout.Rotate = updateData.Rotate
+		layout.Width = updateData.Width
+		layout.Height = updateData.Height
+		layout.ZIndex = updateData.ZIndex
+		layout.IsMain = updateData.IsMain
+		layout.IsOshi = updateData.IsOshi
+		layout.Label = updateData.Label
+		layout.MonitorType = updateData.MonitorType
+
+		if err := db.Save(&layout).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "レイアウトの更新に失敗しました"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "レイアウトの更新が完了しました",
+			"layout":  layout,
+		})
+	})
+
+	// 特定モニターのレイアウト削除
+	r.DELETE("/users/:id/room-layout/:monitor_id", func(c *gin.Context) {
+		var user User
+		if err := db.First(&user, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+			return
+		}
+
+		var layout RoomLayout
+		if err := db.Where("user_id = ? AND monitor_id = ?", c.Param("id"), c.Param("monitor_id")).First(&layout).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "レイアウトが見つかりません"})
+			return
+		}
+
+		if err := db.Delete(&layout).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "レイアウトの削除に失敗しました"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "レイアウトの削除が完了しました"})
+	})
+
+	// 動画情報取得
+	r.GET("/videos/:video_id/info", func(c *gin.Context) {
+		videoID := c.Param("video_id")
+		info, err := getVideoInfo(videoID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "動画情報の取得に失敗しました: " + err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, info)
 	})
 
 	r.Run()

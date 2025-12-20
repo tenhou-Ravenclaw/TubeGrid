@@ -40,3 +40,21 @@ type StreamStatus struct {
 	ThumbnailURL string `json:"thumbnail_url"`
 }
 
+// ルームレイアウト
+type RoomLayout struct {
+	gorm.Model
+	UserID      uint   `json:"user_id" gorm:"index"`
+	MonitorID   string `json:"monitor_id"`   // モニター識別子（一意）
+	VideoID     string `json:"video_id"`     // YouTube動画ID
+	X           int    `json:"x"`            // X座標
+	Y           int    `json:"y"`            // Y座標
+	Rotate      int    `json:"rotate"`       // 回転角度
+	Width       int    `json:"width"`        // 幅
+	Height      int    `json:"height"`       // 高さ
+	ZIndex      int    `json:"z_index"`      // z-index
+	IsMain      bool   `json:"is_main"`      // メインモニターか
+	IsOshi      bool   `json:"is_oshi"`      // 推しモニターか
+	Label       string `json:"label"`        // ラベル
+	MonitorType string `json:"monitor_type"` // モニタータイプ（"main", "small"など）
+}
+
