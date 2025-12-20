@@ -12,6 +12,7 @@ type User struct {
 	gorm.Model
 	Name          string             `json:"name" binding:"required"`
 	Email         string             `json:"email" binding:"required,email" gorm:"unique"`
+	Password      string             `json:"-" gorm:"not null"` // JSONから除外、DBに保存
 	DefaultVolume int                `json:"default_volume" gorm:"default:50"`
 	LayoutSetting string             `json:"layout_setting" gorm:"default:'grid'"`
 	Favorites     []Talent           `gorm:"many2many:user_favorites;" json:"favorites"`

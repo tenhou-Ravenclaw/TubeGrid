@@ -3,17 +3,40 @@ import './Login.css';
 import iconImg from "./assets/icon.png";
 import heartImg from "./assets/heart.png";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
 const Login = ({ onNavigate, onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: バックエンドとの連携処理
-    console.log('Login:', { email, password });
-    
-    // 仮のログイン成功処理
-    onLoginSuccess();
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // ログイン成功
+        onLoginSuccess(data.token, data.user);
+      } else {
+        setError(data.error || 'ログインに失敗しました');
+      }
+    } catch (err) {
+      console.error('ログインエラー:', err);
+      setError('ネットワークエラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,9 +108,25 @@ const Login = ({ onNavigate, onLoginSuccess }) => {
               </button>
             </div>
 
+            {/* エラーメッセージ */}
+            {error && (
+              <div className="error-message" style={{ 
+                color: '#ff4444', 
+                fontSize: '14px', 
+                marginBottom: '10px',
+                textAlign: 'center'
+              }}>
+                {error}
+              </div>
+            )}
+
             {/* ログインボタン */}
-            <button type="submit" className="login-submit-btn">
-              ログイン
+            <button 
+              type="submit" 
+              className="login-submit-btn"
+              disabled={loading}
+            >
+              {loading ? 'ログイン中...' : 'ログイン'}
             </button>
 
             {/* 新規登録へのリンク */}

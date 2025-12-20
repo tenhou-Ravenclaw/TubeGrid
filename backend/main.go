@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	_ "modernc.org/sqlite"
@@ -108,13 +109,83 @@ func main() {
 
 	// 各種エンドポイント
 	r.POST("/register", func(c *gin.Context) {
-		var user User
-		if err := c.ShouldBindJSON(&user); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+		var req struct {
+			Name     string `json:"name" binding:"required"`
+			Email    string `json:"email" binding:"required,email"`
+			Password string `json:"password" binding:"required,min=8"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "入力データが正しくありません: " + err.Error()})
 			return
 		}
-		db.Create(&user)
-		c.JSON(200, user)
+
+		// メール重複チェック
+		var existingUser User
+		if err := db.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "このメールアドレスは既に登録されています"})
+			return
+		}
+
+		// パスワードハッシュ化
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "パスワードのハッシュ化に失敗しました"})
+			return
+		}
+
+		// ユーザー作成
+		user := User{
+			Name:     req.Name,
+			Email:    req.Email,
+			Password: string(hashedPassword),
+		}
+		if err := db.Create(&user).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ユーザーの登録に失敗しました: " + err.Error()})
+			return
+		}
+
+		// パスワードを除外してレスポンス
+		user.Password = ""
+		c.JSON(http.StatusOK, user)
+	})
+
+	// ログインAPI
+	r.POST("/login", func(c *gin.Context) {
+		var req struct {
+			Email    string `json:"email" binding:"required,email"`
+			Password string `json:"password" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "入力データが正しくありません: " + err.Error()})
+			return
+		}
+
+		// ユーザー検索
+		var user User
+		if err := db.Where("email = ?", req.Email).First(&user).Error; err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "メールアドレスまたはパスワードが正しくありません"})
+			return
+		}
+
+		// パスワード検証
+		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "メールアドレスまたはパスワードが正しくありません"})
+			return
+		}
+
+		// ログイン成功 - シンプルなトークン（後でJWTに置き換え可能）
+		// ここではユーザーIDをトークンとして使用（本番環境ではJWT推奨）
+		token := fmt.Sprintf("user_%d_%d", user.ID, time.Now().Unix())
+
+		// パスワードを除外してレスポンス
+		user.Password = ""
+		c.JSON(http.StatusOK, gin.H{
+			"token":   token,
+			"user":    user,
+			"message": "ログイン成功",
+		})
 	})
 
 	// ユーザー一覧取得
