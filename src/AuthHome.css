@@ -1,0 +1,233 @@
+/* AuthHome.css */
+
+.auth-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  background: linear-gradient(135deg, #E91E63 0%, #EC407A 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 左側：ブランディングエリア */
+.auth-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: white;
+  z-index: 1;
+}
+
+.app-title {
+  font-size: 72px;
+  font-weight: 800;
+  margin: 0 330px;
+  letter-spacing: 2px;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.app-subtitle {
+  font-size: 32px;
+  font-weight: 400;
+  margin-top: 30px;
+  margin-left: 330px;
+  line-height: 1.6;
+  opacity: 0.95;
+}
+
+/* 右側：認証カード */
+.auth-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  margin-right: 5%;
+  margin-left: -10%;
+}
+
+.auth-card {
+  background: #FAFAFA;
+  border-radius: 40px;
+  padding: 100px 140px;
+  width: 100%;
+  max-width: 600px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 50px;
+  margin-right: 20%;
+}
+
+/* アイコン部分 */
+.auth-icon {
+  width: 160px;
+  height: 160px;
+  position: relative;
+}
+
+.icon-wrapper {
+  width: 80%;
+  height: 80%;
+  background: linear-gradient(135deg, #E91E63 0%, #EC407A 100%);
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 25px rgba(233, 30, 99, 0.4);
+  position: relative;
+  left: 10%;
+}
+
+/* メインアイコン画像 */
+.main-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 浮遊するハート画像 */
+.floating-heart-img {
+  position: absolute;
+  top: -15px;
+  right: -35px;
+  width: 45px;
+  height: 45px;
+  transform: rotate(15deg);
+  animation: float 2s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(15deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(15deg);
+  }
+}
+
+/* ボタン群 */
+.auth-buttons {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.auth-btn {
+  width: 100%;
+  padding: 20px 35px;
+  font-size: 20px;
+  font-weight: 700;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 1px;
+}
+
+.login-btn {
+  background: white;
+  color: #E91E63;
+  border: 2px solid #E91E63;
+}
+
+.login-btn:hover {
+  background: #FFF5F8;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(233, 30, 99, 0.2);
+}
+
+.signup-btn {
+  background: linear-gradient(135deg, #E91E63 0%, #EC407A 100%);
+  color: white;
+  border: 2px solid transparent;
+}
+
+.signup-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(233, 30, 99, 0.4);
+  filter: brightness(1.05);
+}
+
+.auth-btn:active {
+  transform: translateY(0);
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 968px) {
+  .auth-container {
+    flex-direction: column;
+  }
+
+  .auth-left {
+    padding: 40px;
+    text-align: center;
+    flex: 0 0 auto;
+  }
+
+  .app-title {
+    font-size: 48px;
+    margin: 0;
+  }
+
+  .app-subtitle {
+    font-size: 18px;
+    margin-top: 20px;
+    margin-left: 0;
+  }
+
+  .auth-right {
+    flex: 1;
+    padding: 20px;
+  }
+
+  .auth-card {
+    padding: 50px 40px;
+    max-width: 420px;
+  }
+
+  .auth-icon {
+    width: 120px;
+    height: 120px;
+  }
+
+  .floating-heart-img {
+    width: 35px;
+    height: 35px;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-title {
+    font-size: 36px;
+  }
+
+  .app-subtitle {
+    font-size: 16px;
+  }
+
+  .auth-icon {
+    width: 100px;
+    height: 100px;
+  }
+
+  .floating-heart-img {
+    width: 28px;
+    height: 28px;
+    top: -10px;
+    right: -10px;
+  }
+
+  .auth-btn {
+    padding: 16px 24px;
+    font-size: 16px;
+  }
+
+  .auth-card {
+    padding: 40px 30px;
+    gap: 40px;
+  }
+}
