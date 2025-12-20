@@ -30,7 +30,7 @@ const Room = () => {
       x: 920,
       y: 300,
       vid: "fSAtD36VPhI",
-      rotate: -10,
+      rotate: 0,
       label: "推し1",
     },
     {id: "sub2", x: 1370, y: 70, vid: "dQw4w9WgXcQ", rotate: 0, label: "推し2"},
@@ -39,7 +39,7 @@ const Room = () => {
       x: 1800,
       y: 300,
       vid: "fSAtD36VPhI",
-      rotate: 10,
+      rotate: 0,
       label: "推し3",
     },
     {
@@ -47,7 +47,7 @@ const Room = () => {
       x: 860,
       y: 760,
       vid: "dQw4w9WgXcQ",
-      rotate: 15,
+      rotate: 0,
       label: "推し4",
     },
     {
@@ -55,7 +55,7 @@ const Room = () => {
       x: 1850,
       y: 800,
       vid: "fSAtD36VPhI",
-      rotate: -15,
+      rotate: 0,
       label: "推し5",
     },
   ];
@@ -153,8 +153,8 @@ const Room = () => {
     },
   ];
 
-  const [subData, setSubData] = useState(INITIAL_SUB_DATA);
-  const [smallData, setSmallData] = useState(INITIAL_SMALL_DATA);
+  const subData = INITIAL_SUB_DATA;
+  const smallData = INITIAL_SMALL_DATA;
 
   // --- 3. ロジック（略） ---
   const swapVideo = (id, type) => {

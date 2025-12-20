@@ -18,8 +18,14 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label }) => 
         style={{ position: "absolute", left: `${x}px`, top: `${y}px`, zIndex: isOshi ? 150 : 100 }}
         onDoubleClick={onSwap}
       >
-        <div className="monitor-group" style={{ transform: `rotate(${rotate}deg)`, transformOrigin: "center center" }}>
-          
+        <div 
+          className="monitor-group" 
+          style={{ 
+            transform: `rotate(${rotate}deg)`, 
+            transformOrigin: "center center",
+            width: "100%" 
+          }}
+        >
           <div className="screen-inside sub-screen">
             <iframe src={`https://www.youtube.com/embed/${videoId}`} frameBorder="0" title={`monitor-${id}`} />
             <div className="monitor-label small">{label}</div>
