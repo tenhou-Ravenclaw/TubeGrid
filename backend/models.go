@@ -58,3 +58,33 @@ type RoomLayout struct {
 	MonitorType string `json:"monitor_type"` // モニタータイプ（"main", "small"など）
 }
 
+// 視聴セッション
+type ViewingSession struct {
+	gorm.Model
+	UserID      uint           `json:"user_id" gorm:"index"`
+	SessionName string         `json:"session_name"` // セッション名（オプション）
+	IsActive    bool           `json:"is_active" gorm:"default:true"` // アクティブなセッションか
+	Streams     []SessionStream `json:"streams" gorm:"foreignKey:SessionID"`
+}
+
+// セッションストリーム
+type SessionStream struct {
+	gorm.Model
+	SessionID uint   `json:"session_id" gorm:"index"`
+	TalentID  uint   `json:"talent_id"`
+	VideoID   string `json:"video_id"`   // YouTube動画ID
+	StreamURL string `json:"stream_url"`
+	Title     string `json:"title"`     // 配信タイトル
+	IsMain    bool   `json:"is_main"`    // メイン枠か
+	Volume    int    `json:"volume"`     // 音量設定（0-100）
+	Position  int    `json:"position"`  // 表示順序
+}
+
+// 推し音量プリセット
+type OshiVolumePreset struct {
+	gorm.Model
+	UserID   uint `json:"user_id" gorm:"index"`
+	TalentID uint `json:"talent_id" gorm:"index"`
+	Volume   int  `json:"volume" gorm:"default:50"` // 推しごとの音量設定
+}
+

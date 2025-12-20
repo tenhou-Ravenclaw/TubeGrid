@@ -252,3 +252,83 @@ func getVideoInfo(videoID string) (*VideoInfo, error) {
 	}, nil
 }
 
+// チャンネル情報
+type ChannelInfo struct {
+	ChannelID    string `json:"channel_id"`
+	ChannelName  string `json:"channel_name"`
+	ThumbnailURL string `json:"thumbnail_url"`
+	Description  string `json:"description"`
+	SubscriberCount string `json:"subscriber_count"`
+}
+
+// YouTubeチャンネル情報取得用レスポンス構造体
+type YouTubeChannelInfoResponse struct {
+	Items []struct {
+		ID      string `json:"id"`
+		Snippet struct {
+			Title       string `json:"title"`
+			Description string `json:"description"`
+			Thumbnails struct {
+				Default struct {
+					URL string `json:"url"`
+				} `json:"default"`
+			} `json:"thumbnails"`
+		} `json:"snippet"`
+		Statistics struct {
+			SubscriberCount string `json:"subscriberCount"`
+		} `json:"statistics"`
+	} `json:"items"`
+}
+
+// チャンネル情報取得
+func getChannelInfo(channelID string) (*ChannelInfo, error) {
+	apiKey, err := getYouTubeAPIKey()
+	if err != nil {
+		log.Printf("エラー: APIキーの取得に失敗 (ChannelID: %s): %v", channelID, err)
+		return nil, fmt.Errorf("APIキーの取得に失敗: %v", err)
+	}
+
+	// Channels API: チャンネル情報を取得
+	channelURL := fmt.Sprintf(
+		"https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=%s&key=%s",
+		channelID, apiKey,
+	)
+
+	log.Printf("YouTube Channels API呼び出し: ChannelID=%s", channelID)
+	resp, err := httpClient.Get(channelURL)
+	if err != nil {
+		log.Printf("エラー: YouTube Channels API呼び出し失敗 (ChannelID: %s): %v", channelID, err)
+		return nil, fmt.Errorf("YouTube Channels API呼び出し失敗: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("エラー: YouTube Channels API エラー (ChannelID: %s, ステータス: %d): %s", channelID, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("YouTube Channels API エラー (ステータス: %d): %s", resp.StatusCode, string(body))
+	}
+
+	var channelData YouTubeChannelInfoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&channelData); err != nil {
+		log.Printf("エラー: レスポンスのパースに失敗 (ChannelID: %s): %v", channelID, err)
+		return nil, fmt.Errorf("レスポンスのパースに失敗: %v", err)
+	}
+
+	if len(channelData.Items) == 0 {
+		log.Printf("情報: チャンネル情報が見つかりません (ChannelID: %s)", channelID)
+		return nil, fmt.Errorf("チャンネル情報が見つかりません (ChannelID: %s)", channelID)
+	}
+
+	item := channelData.Items[0]
+
+	log.Printf("成功: チャンネル情報取得完了 (ChannelID: %s, Name: %s)", channelID, item.Snippet.Title)
+
+	return &ChannelInfo{
+		ChannelID:     channelID,
+		ChannelName:   item.Snippet.Title,
+		ThumbnailURL:  item.Snippet.Thumbnails.Default.URL,
+		Description:   item.Snippet.Description,
+		SubscriberCount: item.Statistics.SubscriberCount,
+	}, nil
+}
+
