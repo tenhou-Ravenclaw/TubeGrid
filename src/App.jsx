@@ -1,9 +1,15 @@
-import { useState } from 'react'
-import './App.css'
+
+import React, { useState } from 'react';
+import AuthHome from './AuthHome.jsx';
+import Login from './Login.jsx';
+import Register from './Register.jsx';
+import Room from './room.jsx';
+import './App.css';
 
 const API_BASE_URL = 'http://localhost:8080'
 
 function App() {
+
   const [users, setUsers] = useState([])
   const [talents, setTalents] = useState([])
   const [groups, setGroups] = useState([])
@@ -193,7 +199,47 @@ function App() {
     }
   }
 
-  return (
+
+  // 画面遷移ハンドラ
+  const handleNavigation = (screen) => {
+    setCurrentScreen(screen);
+  };
+
+  // ログイン成功
+  const handleLoginSuccess = () => {
+    setCurrentScreen('room');
+  };
+
+  // 登録成功
+  const handleRegisterSuccess = () => {
+    setCurrentScreen('room');
+  };
+
+  // 画面の出し分け
+  if (currentScreen === 'auth') {
+    return <AuthHome onNavigate={handleNavigation} />;
+  }
+
+  if (currentScreen === 'login') {
+    return (
+      <Login 
+        onNavigate={handleNavigation}
+        onLoginSuccess={handleLoginSuccess}
+      />
+    );
+  }
+
+  if (currentScreen === 'signup') {
+    return (
+      <Register 
+        onNavigate={handleNavigation}
+        onRegisterSuccess={handleRegisterSuccess}
+      />
+    );
+  }
+
+  // Room画面
+  return ( 
     <div className="app">
       <h1>📡 推し活コマンドセンター - API動作確認</h1>
 
@@ -322,6 +368,7 @@ function App() {
       </div>
     </div>
   )
+
 }
 
-export default App
+export default App;
