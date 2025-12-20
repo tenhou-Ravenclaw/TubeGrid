@@ -1,0 +1,384 @@
+/* Register.css */
+
+.register-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  background: linear-gradient(135deg, #E91E63 0%, #EC407A 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 左側：ブランディングエリア */
+.register-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: white;
+  z-index: 1;
+}
+
+.app-title {
+  font-size: 72px;
+  font-weight: 800;
+  margin: 0 330px;
+  letter-spacing: 2px;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.app-subtitle {
+  font-size: 32px;
+  font-weight: 400;
+  margin-top: 30px;
+  margin-left: 330px;
+  line-height: 1.6;
+  opacity: 0.95;
+}
+
+/* 右側：登録カード */
+.register-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  margin-right: 5%;
+  margin-left: -10%;
+}
+
+.register-card {
+  background: #FAFAFA;
+  border-radius: 40px;
+  padding: 60px 80px;
+  width: 100%;
+  max-width: 600px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  margin-right: 20%;
+}
+
+/* アイコン部分 */
+.register-icon {
+  width: 160px;
+  height: 160px;
+  position: relative;
+}
+
+.icon-wrapper {
+  width: 80%;
+  height: 80%;
+  background: linear-gradient(135deg, #E91E63 0%, #EC407A 100%);
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 25px rgba(233, 30, 99, 0.4);
+  position: relative;
+  left: 10%;
+}
+
+/* メインアイコン画像 */
+.main-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 浮遊するハート画像 */
+.floating-heart-img {
+  position: absolute;
+  top: -15px;
+  right: -35px;
+  width: 45px;
+  height: 45px;
+  transform: rotate(15deg);
+  animation: float 2s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(15deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(15deg);
+  }
+}
+
+/* フォーム */
+.register-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.form-group {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #E91E63;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.password-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: #E91E63;
+  opacity: 0.8;
+}
+
+.form-input {
+  width: 100%;
+  padding: 14px 18px;
+  font-size: 16px;
+  border: 2px solid #E91E63;
+  border-radius: 8px;
+  background: white;
+  color: #333;
+  transition: all 0.3s ease;
+}
+
+.form-input::placeholder {
+  color: #999;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #C2185B;
+  box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.1);
+}
+
+/* チェックボックスグループ */
+.checkbox-group {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+/* デフォルトのチェックボックスを非表示にする */
+.checkbox-input {
+  position: absolute;
+  opacity: 0;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  z-index: 2;
+  margin: 0;
+}
+
+/* 視覚的なチェックボックス */
+.checkbox-visual {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #E91E63;
+  border-radius: 4px;
+  position: relative;
+  background: white;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.checkbox-input:hover + .checkbox-visual {
+  border-color: #C2185B;
+  box-shadow: 0 0 0 2px rgba(233, 30, 99, 0.1);
+}
+
+/* チェックされた時のスタイル */
+.checkbox-input:checked + .checkbox-visual {
+  background: linear-gradient(135deg, #E91E63 0%, #EC407A 100%);
+  border-color: #E91E63;
+}
+
+/* チェックマーク */
+.checkbox-input:checked + .checkbox-visual::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 6px;
+  height: 11px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox-text {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* 新規登録ボタン */
+.register-submit-btn {
+  width: 100%;
+  padding: 18px 35px;
+  font-size: 20px;
+  font-weight: 700;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #E91E63 0%, #EC407A 100%);
+  color: white;
+  transition: all 0.3s ease;
+  letter-spacing: 1px;
+  margin-top: 8px;
+}
+
+.register-submit-btn:not(.disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(233, 30, 99, 0.4);
+  filter: brightness(1.05);
+}
+
+.register-submit-btn:not(.disabled):active {
+  transform: translateY(0);
+}
+
+/* 無効状態（チェックされていない時） */
+.register-submit-btn.disabled {
+  background: #CCCCCC;
+  color: #ffffff;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.register-submit-btn.disabled:hover {
+  transform: none;
+  box-shadow: none;
+  filter: none;
+}
+
+/* ログインリンク */
+.login-link {
+  background: none;
+  border: none;
+  color: #E91E63;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+  margin-top: 8px;
+}
+
+.login-link:hover {
+  opacity: 0.7;
+}
+
+.login-link:active {
+  opacity: 0.7;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 968px) {
+  .register-container {
+    flex-direction: column;
+  }
+
+  .register-left {
+    padding: 40px;
+    text-align: center;
+    flex: 0 0 auto;
+  }
+
+  .app-title {
+    font-size: 48px;
+    margin: 0;
+  }
+
+  .app-subtitle {
+    font-size: 18px;
+    margin-top: 20px;
+    margin-left: 0;
+  }
+
+  .register-right {
+    flex: 1;
+    padding: 20px;
+    margin: 0;
+  }
+
+  .register-card {
+    padding: 50px 40px;
+    max-width: 420px;
+    margin: 0;
+  }
+
+  .register-icon {
+    width: 120px;
+    height: 120px;
+  }
+
+  .floating-heart-img {
+    width: 35px;
+    height: 35px;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-title {
+    font-size: 36px;
+  }
+
+  .app-subtitle {
+    font-size: 16px;
+  }
+
+  .register-icon {
+    width: 100px;
+    height: 100px;
+  }
+
+  .floating-heart-img {
+    width: 28px;
+    height: 28px;
+    top: -10px;
+    right: -10px;
+  }
+
+  .register-card {
+    padding: 40px 30px;
+    gap: 30px;
+  }
+
+  .form-label {
+    font-size: 14px;
+  }
+
+  .form-input {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+
+  .register-submit-btn {
+    padding: 16px 24px;
+    font-size: 18px;
+  }
+
+  .checkbox-text {
+    font-size: 13px;
+  }
+}
