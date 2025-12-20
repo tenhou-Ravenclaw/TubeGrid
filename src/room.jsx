@@ -300,6 +300,33 @@ const Room = ({ onLogout, userId: propUserId }) => {
     }
   }, [mainVolume]);
 
+  // メインモニターの再生・一時停止の切り替え
+  const toggleMainPlayPause = () => {
+    if (!mainPlayerRef.current) return;
+
+    try {
+      const state = mainPlayerRef.current.getPlayerState();
+      // 1: 再生中, 2: 一時停止中, 3: バッファリング中, 5: 動画終了
+      if (state === 1) {
+        mainPlayerRef.current.pauseVideo();
+      } else {
+        mainPlayerRef.current.playVideo();
+      }
+    } catch (error) {
+      console.error('メイン再生制御エラー:', error);
+    }
+  };
+
+  // メインモニターのクリックイベントハンドラー
+  const handleMainMonitorClick = (e) => {
+    // 音量バーやその他の操作可能要素の場合は無視
+    if (e.target.closest('.volume-overlay') || e.target.closest('.volume-handle')) {
+      return;
+    }
+
+    toggleMainPlayPause();
+  };
+
   // 画面サイズに応じて.worldをスケール
   useEffect(() => {
     const updateScale = () => {
@@ -450,6 +477,9 @@ const Room = ({ onLogout, userId: propUserId }) => {
 
   // モニター位置変更の保存（デバウンス付き）
   const saveMonitorPosition = async (monitorId, position) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:479', message: 'saveMonitorPosition called', data: { monitorId, userId, position }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
+    // #endregion
     if (!userId) return;
 
     // 既存のタイマーをクリア
@@ -479,6 +509,9 @@ const Room = ({ onLogout, userId: propUserId }) => {
           label: position.label || '',
           monitor_type: position.monitorType || 'sub'
         };
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:508', message: 'Before API call', data: { monitorId, existingLayout: !!existingLayout, layoutData }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+        // #endregion
 
         if (existingLayout) {
           // 更新
@@ -501,6 +534,9 @@ const Room = ({ onLogout, userId: propUserId }) => {
         } else {
           // 新規作成（初期保存）
           const allLayouts = [...roomLayouts, layoutData];
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:531', message: 'POST request about to be sent', data: { monitorId, url: `${API_BASE_URL}/users/${userId}/room-layout`, bodySize: JSON.stringify(allLayouts).length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+          // #endregion
           const response = await fetch(
             `${API_BASE_URL}/users/${userId}/room-layout`,
             {
@@ -509,12 +545,23 @@ const Room = ({ onLogout, userId: propUserId }) => {
               body: JSON.stringify(allLayouts)
             }
           );
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:538', message: 'POST response received', data: { monitorId, status: response.status, statusText: response.statusText, ok: response.ok }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+          // #endregion
           if (response.ok) {
             const data = await response.json();
             setRoomLayouts(data.layouts || allLayouts);
+          } else {
+            // #region agent log
+            const errorText = await response.text().catch(() => '');
+            fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:542', message: 'POST request failed', data: { monitorId, status: response.status, errorText: errorText.substring(0, 200) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+            // #endregion
           }
         }
       } catch (err) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:545', message: 'saveMonitorPosition error', data: { monitorId, error: err.message, stack: err.stack?.substring(0, 200) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
+        // #endregion
         console.error('レイアウト保存エラー:', err);
       }
     }, 500);
@@ -879,6 +926,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
             position: "absolute",
             width: "800px",
           }}
+          onClick={handleMainMonitorClick}
         >
           <div className="screen-inside main-screen">
             {mainVid ? (
@@ -925,6 +973,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
                 axis="x"
                 bounds="parent"
                 defaultPosition={{ x: 100, y: 0 }}
+                onStart={(e) => e.stopPropagation()}
                 onDrag={(e, data) => {
                   // 音量スライダーの位置から音量を計算（0-100）
                   const parentWidth = data.node.parentElement.offsetWidth;

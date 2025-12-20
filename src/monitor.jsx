@@ -11,6 +11,12 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label, onPos
   const [volume, setVolume] = useState(propVolume);
   const playerRef = useRef(null);
   const [volumePosition, setVolumePosition] = useState({ x: 50, y: 0 });
+  
+  // クリック/ホールド検出用
+  const holdTimerRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const isHoldingRef = useRef(false);
+  const mouseDownTimeRef = useRef(0);
 
   useEffect(() => { setVideoId(vid); }, [vid]);
   useEffect(() => { setPosition({ x, y }); }, [x, y]);
@@ -66,7 +72,84 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label, onPos
     }
   }, [volume]);
 
+  // 再生・一時停止の切り替え
+  const togglePlayPause = () => {
+    if (!playerRef.current) return;
+    
+    try {
+      const state = playerRef.current.getPlayerState();
+      // 1: 再生中, 2: 一時停止中, 3: バッファリング中, 5: 動画終了
+      if (state === 1) {
+        playerRef.current.pauseVideo();
+      } else {
+        playerRef.current.playVideo();
+      }
+    } catch (error) {
+      console.error('再生制御エラー:', error);
+    }
+  };
+
+  // マウスダウン: ホールド検出開始
+  const handleMouseDown = (e) => {
+    // 音量バーやその他の操作可能要素の場合は無視
+    if (e.target.closest('.volume-overlay') || e.target.closest('.volume-handle')) {
+      return;
+    }
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:93',message:'handleMouseDown called',data:{monitorId:id,timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+    mouseDownTimeRef.current = Date.now();
+    isHoldingRef.current = false;
+    isDraggingRef.current = false;
+    
+    // 300ms後にホールドと判定
+    holdTimerRef.current = setTimeout(() => {
+      isHoldingRef.current = true;
+    }, 300);
+  };
+
+  // マウスアップ: クリック判定
+  const handleMouseUp = (e) => {
+    // 音量バーやその他の操作可能要素の場合は無視
+    if (e.target.closest('.volume-overlay') || e.target.closest('.volume-handle')) {
+      return;
+    }
+    
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    
+    const holdDuration = Date.now() - mouseDownTimeRef.current;
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:110',message:'handleMouseUp called',data:{monitorId:id,holdDuration,isDragging:isDraggingRef.current,isHolding:isHoldingRef.current,willToggle:!isDraggingRef.current&&!isHoldingRef.current&&holdDuration<300},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+    
+    // ドラッグ中でなく、短いクリック（300ms未満）の場合は再生・一時停止
+    if (!isDraggingRef.current && !isHoldingRef.current && holdDuration < 300) {
+      togglePlayPause();
+    }
+    
+    isHoldingRef.current = false;
+  };
+
+  // ドラッグ開始時の処理
+  const handleDragStart = () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:132',message:'handleDragStart called',data:{monitorId:id,isDraggingBefore:isDraggingRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    isDraggingRef.current = true;
+  };
+
   const handleDragStop = (e, data) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:140',message:'handleDragStop called',data:{monitorId:id,isDragging:isDraggingRef.current,position:{x:data.x,y:data.y},currentPosition:{x:position.x,y:position.y}},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     const newPosition = {
       x: data.x,
       y: data.y,
@@ -75,18 +158,34 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, isOshi, label, onPos
       height: 0,
       zIndex: isOshi ? 150 : 100
     };
+    const positionChanged = data.x !== position.x || data.y !== position.y;
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:149',message:'Before onPositionChange',data:{monitorId:id,isDragging:isDraggingRef.current,positionChanged},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     setPosition(newPosition);
-    if (onPositionChange) {
+    // 実際にドラッグが発生し、位置が変わった場合のみ位置を保存
+    if (onPositionChange && isDraggingRef.current && positionChanged) {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:153',message:'Calling onPositionChange',data:{monitorId:id,newPosition},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       onPositionChange(newPosition);
     }
+    isDraggingRef.current = false;
   };
 
   return (
-    <Draggable nodeRef={nodeRef} onStop={handleDragStop} position={position}>
+    <Draggable 
+      nodeRef={nodeRef} 
+      onStop={handleDragStop}
+      onStart={handleDragStart}
+      position={position}
+    >
       <div
         ref={nodeRef}
         className={`monitor-draggable-wrapper ${isOshi ? "oshi-focus" : ""}`}
         style={{ position: "absolute", left: `${position.x}px`, top: `${position.y}px`, zIndex: isOshi ? 150 : 100 }}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
         onDoubleClick={onSwap}
       >
         <div 
