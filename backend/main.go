@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -16,33 +17,77 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// --- グローバル変数 ---
+var (
+	eventHistory  = make(map[uint][]StreamEvent)
+	eventMutex    sync.Mutex
+	streamCache   = make(map[uint]CacheItem)
+	cacheMutex    sync.RWMutex
+	cacheDuration = 1 * time.Minute
+)
+
+// --- ロジック関数 ---
+func detectSurge(talentID uint, current StreamEvent) bool {
+	eventMutex.Lock()
+	defer eventMutex.Unlock()
+
+	history := eventHistory[talentID]
+	if len(history) < 5 {
+		eventHistory[talentID] = append(history, current)
+		return false
+	}
+
+	var totalChat int
+	for _, h := range history {
+		totalChat += h.ChatCount
+	}
+	avgChat := float64(totalChat) / float64(len(history))
+
+	if len(history) > 10 {
+		history = history[1:]
+	}
+	eventHistory[talentID] = append(history, current)
+
+	return float64(current.ChatCount) > avgChat*2.0 || current.SuperChat > 0
+}
+
+func getStreamStatusWithCache(t Talent) (*StreamStatus, error) {
+	cacheMutex.RLock()
+	item, found := streamCache[t.ID]
+	cacheMutex.RUnlock()
+
+	if found && time.Now().Before(item.ExpiresAt) {
+		return item.Status, nil
+	}
+
+	// stream_service.go の関数を呼び出す
+	status, err := getStreamStatus(t)
+	if err != nil {
+		return nil, err
+	}
+
+	cacheMutex.Lock()
+	streamCache[t.ID] = CacheItem{
+		Status:    status,
+		ExpiresAt: time.Now().Add(cacheDuration),
+	}
+	cacheMutex.Unlock()
+
+	return status, nil
+}
+
 func main() {
-	// 1. .env の読み込み
-	if err := godotenv.Load(); err != nil {
-		log.Println(".env file not found (using system env)")
-	}
-	// APIキーの検証
-	if apiKey, err := getYouTubeAPIKey(); err != nil {
-		log.Printf("警告: %v", err)
-	} else {
-		log.Printf("YouTube API Key loaded: %t", apiKey != "")
-	}
+	_ = godotenv.Load()
 
-	// 2. データベース接続
 	dbPath := filepath.Join(".", "user.db")
-	log.Printf("データベースパス: %s", dbPath)
-
-	// modernc.org/sqliteを使用（CGO不要）
-	// database/sqlを経由してmodernc.org/sqliteを明示的に使用
 	sqlDB, err := sql.Open("sqlite", dbPath)
 	if err != nil {
-		log.Fatalf("データベースに接続できませんでした: %v", err)
+		log.Fatalf("DB接続失敗: %v", err)
 	}
 
-	// GORMに接続
 	db, err := gorm.Open(sqlite.Dialector{Conn: sqlDB}, &gorm.Config{})
 	if err != nil {
-		log.Fatalf("GORMの初期化に失敗しました: %v", err)
+		log.Fatalf("GORM初期化失敗: %v", err)
 	}
 	log.Println("データベース接続成功")
 	db.AutoMigrate(&User{}, &Talent{}, &Group{}, &RoomLayout{}, &ViewingSession{}, &SessionStream{}, &OshiVolumePreset{})
@@ -52,36 +97,24 @@ func main() {
 	// CORS設定
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
-
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
-
 		c.Next()
 	})
 
-	// --- エンドポイント実装 ---
-
-	// ユーザー登録
+	// 各種エンドポイント
 	r.POST("/register", func(c *gin.Context) {
-		var newUser User
-		if err := c.ShouldBindJSON(&newUser); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		var user User
+		if err := c.ShouldBindJSON(&user); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
-		if err := db.Create(&newUser).Error; err != nil {
-			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-				c.JSON(http.StatusConflict, gin.H{"error": "すでにこのメールアドレスは登録されています"})
-				return
-			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "サーバーエラー"})
-			return
-		}
-		c.JSON(http.StatusOK, newUser)
+		db.Create(&user)
+		c.JSON(200, user)
 	})
 
 	// ユーザー一覧取得
@@ -96,178 +129,41 @@ func main() {
 
 	// 配信者登録
 	r.POST("/talents", func(c *gin.Context) {
-		var newTalent Talent
-		if err := c.ShouldBindJSON(&newTalent); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		if err := db.Create(&newTalent).Error; err != nil {
-			c.JSON(http.StatusConflict, gin.H{"error": "既に登録されています"})
-			return
-		}
-		c.JSON(http.StatusOK, newTalent)
-	})
-
-	// 配信者一覧取得
-	r.GET("/talents", func(c *gin.Context) {
-		var talents []Talent
-		if err := db.Find(&talents).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "配信者の取得に失敗しました"})
-			return
-		}
-		c.JSON(http.StatusOK, talents)
-	})
-
-	// 配信者詳細取得
-	r.GET("/talents/:id", func(c *gin.Context) {
 		var talent Talent
-		if err := db.Preload("Groups").First(&talent, c.Param("id")).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "配信者が見つかりません"})
+		if err := c.ShouldBindJSON(&talent); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, talent)
+		db.Create(&talent)
+		c.JSON(200, talent)
 	})
 
-	// 配信者更新
-	r.PUT("/talents/:id", func(c *gin.Context) {
-		var talent Talent
-		if err := db.First(&talent, c.Param("id")).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "配信者が見つかりません"})
-			return
-		}
-
-		var updateData Talent
-		if err := c.ShouldBindJSON(&updateData); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "入力データが正しくありません: " + err.Error()})
-			return
-		}
-
-		// 更新可能なフィールドのみ更新（ChannelIDは変更不可とする）
-		talent.Name = updateData.Name
-		if updateData.Platform != "" {
-			talent.Platform = updateData.Platform
-		}
-
-		if err := db.Save(&talent).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "配信者の更新に失敗しました: " + err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"message": "配信者の更新が完了しました",
-			"talent":  talent,
-		})
-	})
-
-	// 配信者削除
-	r.DELETE("/talents/:id", func(c *gin.Context) {
-		var talent Talent
-		if err := db.First(&talent, c.Param("id")).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "配信者が見つかりません"})
-			return
-		}
-
-		// グループとの関連を削除
-		db.Model(&talent).Association("Groups").Clear()
-
-		// ユーザーの推しリストからも削除
-		var users []User
-		db.Find(&users)
-		for _, user := range users {
-			db.Model(&user).Association("Favorites").Delete(&talent)
-		}
-
-		// 配信者を削除
-		if err := db.Delete(&talent).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "配信者の削除に失敗しました: " + err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"message": "配信者の削除が完了しました"})
-	})
-
-	// グループ登録
 	r.POST("/groups", func(c *gin.Context) {
-		var newGroup Group
-		if err := c.ShouldBindJSON(&newGroup); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		var group Group
+		if err := c.ShouldBindJSON(&group); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
-		if err := db.Create(&newGroup).Error; err != nil {
-			c.JSON(http.StatusConflict, gin.H{"error": "既に存在するグループ名です"})
-			return
-		}
-		c.JSON(http.StatusOK, newGroup)
+		db.Create(&group)
+		c.JSON(200, group)
 	})
 
-	// グループ一覧取得
-	r.GET("/groups", func(c *gin.Context) {
-		var groups []Group
-		if err := db.Find(&groups).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "グループの取得に失敗しました"})
-			return
-		}
-		c.JSON(http.StatusOK, groups)
-	})
-
-	// グループにメンバーを追加（より具体的なルートを先に定義）
 	r.POST("/groups/:id/add-talent/:talent_id", func(c *gin.Context) {
 		var group Group
 		var talent Talent
-		if err := db.First(&group, c.Param("id")).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "グループが見つかりません"})
-			return
-		}
-		if err := db.First(&talent, c.Param("talent_id")).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "配信者が見つかりません"})
-			return
-		}
+		db.First(&group, c.Param("id"))
+		db.First(&talent, c.Param("talent_id"))
 		db.Model(&group).Association("Talents").Append(&talent)
-		c.JSON(http.StatusOK, gin.H{"message": "追加完了"})
+		c.JSON(200, gin.H{"message": "Success"})
 	})
 
-	// グループからメンバーを削除（より具体的なルートを先に定義）
-	r.DELETE("/groups/:id/remove-talent/:talent_id", func(c *gin.Context) {
-		var group Group
-		var talent Talent
-		if err := db.First(&group, c.Param("id")).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "グループが見つかりません"})
-			return
-		}
-		if err := db.First(&talent, c.Param("talent_id")).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "配信者が見つかりません"})
-			return
-		}
-		if err := db.Model(&group).Association("Talents").Delete(&talent); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "メンバーの削除に失敗しました: " + err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "メンバーの削除が完了しました"})
-	})
-
-	// 箱推し一括展開：グループ内の配信者一覧取得（より具体的なルートを先に定義）
-	r.GET("/groups/:id/talents", func(c *gin.Context) {
-		var group Group
-		if err := db.Preload("Talents").First(&group, c.Param("id")).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "グループが見つかりません"})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"group_id":   group.ID,
-			"group_name": group.Name,
-			"talents":    group.Talents,
-		})
-	})
-
-	// 箱推し一括展開API（LIVE状態フィルタリング付き）（より具体的なルートを先に定義）
 	r.GET("/groups/:id/live-streams", func(c *gin.Context) {
 		var group Group
 		if err := db.Preload("Talents").First(&group, c.Param("id")).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "グループが見つかりません"})
+			c.JSON(404, gin.H{"error": "Group not found"})
 			return
 		}
 
-		// 並列で配信状態を取得
 		var wg sync.WaitGroup
 		var mu sync.Mutex
 		var liveStreams []StreamStatus
@@ -276,38 +172,32 @@ func main() {
 			wg.Add(1)
 			go func(t Talent) {
 				defer wg.Done()
-				status, err := getStreamStatus(t)
-				if err != nil {
-					log.Printf("配信状態取得エラー (TalentID: %d): %v", t.ID, err)
-					return
-				}
-				// LIVE中の配信のみを追加
-				if status.IsLive {
+				status, err := getStreamStatusWithCache(t)
+				if err == nil && status.IsLive {
 					mu.Lock()
 					liveStreams = append(liveStreams, *status)
 					mu.Unlock()
 				}
 			}(talent)
 		}
-
 		wg.Wait()
-
-		c.JSON(http.StatusOK, gin.H{
-			"group_id":     group.ID,
-			"group_name":   group.Name,
-			"live_streams": liveStreams,
-			"count":        len(liveStreams),
-		})
+		c.JSON(200, gin.H{"group": group.Name, "lives": liveStreams})
 	})
 
-	// グループ詳細取得（メンバー含む）
-	r.GET("/groups/:id", func(c *gin.Context) {
-		var group Group
-		if err := db.Preload("Talents").First(&group, c.Param("id")).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "グループが見つかりません"})
+	r.POST("/streams/:talent_id/metrics", func(c *gin.Context) {
+		var event StreamEvent
+		if err := c.ShouldBindJSON(&event); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, group)
+
+		var tid uint
+		fmt.Sscanf(c.Param("talent_id"), "%d", &tid)
+		event.TalentID = tid
+		event.Timestamp = time.Now()
+
+		isSurge := detectSurge(tid, event)
+		c.JSON(200, gin.H{"is_surge": isSurge})
 	})
 
 	// グループ更新

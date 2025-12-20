@@ -1,16 +1,21 @@
 package main
 
-import "gorm.io/gorm"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // --- データモデル定義 ---
 
 type User struct {
 	gorm.Model
-	Name          string   `json:"name" binding:"required"`
-	Email         string   `json:"email" binding:"required,email" gorm:"unique"`
-	DefaultVolume int      `json:"default_volume" gorm:"default:50"`
-	LayoutSetting string   `json:"layout_setting" gorm:"default:'grid'"`
-	Favorites     []Talent `gorm:"many2many:user_favorites;" json:"favorites"`
+	Name          string             `json:"name" binding:"required"`
+	Email         string             `json:"email" binding:"required,email" gorm:"unique"`
+	DefaultVolume int                `json:"default_volume" gorm:"default:50"`
+	LayoutSetting string             `json:"layout_setting" gorm:"default:'grid'"`
+	Favorites     []Talent           `gorm:"many2many:user_favorites;" json:"favorites"`
+	VolumePresets []OshiVolumePreset `json:"volume_presets"`
 }
 
 type Talent struct {
@@ -61,9 +66,9 @@ type RoomLayout struct {
 // 視聴セッション
 type ViewingSession struct {
 	gorm.Model
-	UserID      uint           `json:"user_id" gorm:"index"`
-	SessionName string         `json:"session_name"` // セッション名（オプション）
-	IsActive    bool           `json:"is_active" gorm:"default:true"` // アクティブなセッションか
+	UserID      uint            `json:"user_id" gorm:"index"`
+	SessionName string          `json:"session_name"`                  // セッション名（オプション）
+	IsActive    bool            `json:"is_active" gorm:"default:true"` // アクティブなセッションか
 	Streams     []SessionStream `json:"streams" gorm:"foreignKey:SessionID"`
 }
 
@@ -72,12 +77,12 @@ type SessionStream struct {
 	gorm.Model
 	SessionID uint   `json:"session_id" gorm:"index"`
 	TalentID  uint   `json:"talent_id"`
-	VideoID   string `json:"video_id"`   // YouTube動画ID
+	VideoID   string `json:"video_id"` // YouTube動画ID
 	StreamURL string `json:"stream_url"`
-	Title     string `json:"title"`     // 配信タイトル
-	IsMain    bool   `json:"is_main"`    // メイン枠か
-	Volume    int    `json:"volume"`     // 音量設定（0-100）
-	Position  int    `json:"position"`  // 表示順序
+	Title     string `json:"title"`    // 配信タイトル
+	IsMain    bool   `json:"is_main"`  // メイン枠か
+	Volume    int    `json:"volume"`   // 音量設定（0-100）
+	Position  int    `json:"position"` // 表示順序
 }
 
 // 推し音量プリセット
@@ -88,3 +93,16 @@ type OshiVolumePreset struct {
 	Volume   int  `json:"volume" gorm:"default:50"` // 推しごとの音量設定
 }
 
+// --- グローバル変数 (メモリ保持用) ---
+type CacheItem struct {
+	Status    *StreamStatus
+	ExpiresAt time.Time
+}
+
+type StreamEvent struct {
+	TalentID    uint    `json:"talent_id"`
+	VolumeLevel float64 `json:"volume_level"`
+	ChatCount   int     `json:"chat_count"`
+	SuperChat   float64 `json:"super_chat"`
+	Timestamp   time.Time
+}
