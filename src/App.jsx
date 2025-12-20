@@ -10,6 +10,7 @@ const API_BASE_URL = 'http://localhost:8080'
 
 function App() {
 
+  const [currentScreen, setCurrentScreen] = useState('room')
   const [users, setUsers] = useState([])
   const [talents, setTalents] = useState([])
   const [groups, setGroups] = useState([])
@@ -239,135 +240,12 @@ function App() {
   }
 
   // Room画面
-  return ( 
-    <div className="app">
-      <h1>📡 推し活コマンドセンター - API動作確認</h1>
+  if (currentScreen === 'room') {
+    return <Room onLogout={() => setCurrentScreen('auth')} />;
+  }
 
-      {message && (
-        <div className={`message ${message.includes('エラー') ? 'error' : 'success'}`}>
-          {message}
-        </div>
-      )}
-
-      {loading && <div className="loading">読み込み中...</div>}
-
-      <div className="sections">
-        {/* ユーザー管理 */}
-        <section className="section">
-          <h2>👤 ユーザー管理</h2>
-          <div className="button-group">
-            <button onClick={handleRegisterUser}>ユーザー登録</button>
-            <button onClick={fetchUsers}>ユーザー一覧取得</button>
-          </div>
-          <p className="info-text">※ ユーザー登録後、登録されたユーザーIDをメモしておいてください</p>
-          {users.length > 0 && (
-            <div className="list">
-              {users.map((user) => (
-                <div key={user.ID} className="item">
-                  {user.name} ({user.email}) - ID: {user.ID}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* 配信者管理 */}
-        <section className="section">
-          <h2>🎬 配信者管理</h2>
-          <div className="button-group">
-            <button onClick={handleRegisterTalent}>配信者登録</button>
-            <button onClick={fetchTalents}>配信者一覧取得</button>
-          </div>
-          {talents.length > 0 && (
-            <div className="list">
-              {talents.map((talent) => (
-                <div key={talent.ID} className="item">
-                  <div>
-                    <strong>{talent.name}</strong> ({talent.platform}) - ID: {talent.ID}
-                  </div>
-                  <div className="sub-text">ChannelID: {talent.channel_id}</div>
-                  <button
-                    className="small-button"
-                    onClick={() => handleGetStreamStatus(talent.ID)}
-                  >
-                    配信状態取得
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* グループ管理 */}
-        <section className="section">
-          <h2>📦 グループ管理</h2>
-          <div className="button-group">
-            <button onClick={handleCreateGroup}>グループ作成</button>
-            <button onClick={fetchGroups}>グループ一覧取得</button>
-          </div>
-          {groups.length > 0 && (
-            <div className="list">
-              {groups.map((group) => (
-                <div key={group.ID} className="item">
-                  <div>
-                    <strong>{group.name}</strong> - ID: {group.ID}
-                  </div>
-                  <button
-                    className="small-button"
-                    onClick={() => handleGetLiveStreams(group.ID)}
-                  >
-                    LIVE配信一括取得
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* 配信状態表示 */}
-        {streamStatus && (
-          <section className="section">
-            <h2>📺 配信状態</h2>
-            <div className="stream-status">
-              <div className={streamStatus.is_live ? 'live' : 'offline'}>
-                {streamStatus.is_live ? '🔴 LIVE' : '⚫ OFFLINE'}
-              </div>
-              {streamStatus.is_live && (
-                <>
-                  <div><strong>タイトル:</strong> {streamStatus.title}</div>
-                  <div><strong>視聴者数:</strong> {streamStatus.viewer_count.toLocaleString()}人</div>
-                  <div><strong>URL:</strong> <a href={streamStatus.stream_url} target="_blank" rel="noopener noreferrer">{streamStatus.stream_url}</a></div>
-                  {streamStatus.thumbnail_url && (
-                    <img src={streamStatus.thumbnail_url} alt="Thumbnail" className="thumbnail" />
-                  )}
-                </>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* LIVE配信一覧 */}
-        {liveStreams.length > 0 && (
-          <section className="section">
-            <h2>🔴 LIVE配信一覧</h2>
-            <div className="list">
-              {liveStreams.map((stream, index) => (
-                <div key={index} className="item live-item">
-                  <div className="live-badge">🔴 LIVE</div>
-                  <div><strong>{stream.talent_name}</strong></div>
-                  <div>{stream.title}</div>
-                  <div>視聴者数: {stream.viewer_count.toLocaleString()}人</div>
-                  <a href={stream.stream_url} target="_blank" rel="noopener noreferrer">
-                    視聴する
-                  </a>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
-    </div>
-  )
+  // デフォルトは認証画面
+  return <AuthHome onNavigate={handleNavigation} />;
 
 }
 
