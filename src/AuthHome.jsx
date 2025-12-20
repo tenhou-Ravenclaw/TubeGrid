@@ -2,6 +2,7 @@ import React from 'react';
 import './AuthHome.css';
 import iconImg from "./assets/icon.png";
 import heartImg from "./assets/heart.png";
+import GoogleIconImg from "./assets/google-icon.png";
 
 const AuthHome = ({ onNavigate }) => {
   return (
@@ -39,6 +40,24 @@ const AuthHome = ({ onNavigate }) => {
 
           {/* ボタン群 */}
           <div className="auth-buttons">
+            {/* Googleログインボタン */}
+            <button 
+              className="google-signin-btn"
+              onClick={() => onNavigate('google-signin')}
+            >
+              <img 
+                src={GoogleIconImg} 
+                alt="Google" 
+                className="google-icon"
+              />
+              <span>Googleアカウントでログイン</span>
+            </button>
+
+            {/* 区切り線 */}
+            <div className="divider">
+              <span>または</span>
+            </div>
+
             <button 
               className="auth-btn login-btn"
               onClick={() => onNavigate('login')}

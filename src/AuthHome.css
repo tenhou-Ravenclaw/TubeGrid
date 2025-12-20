@@ -4,7 +4,7 @@
   width: 100vw;
   height: 100vh;
   display: flex;
-  background: linear-gradient(135deg, #E91E63 0%, #EC407A 100%);
+  background: linear-gradient(135deg, #e91e63 0%, #ec407a 100%);
   position: relative;
   overflow: hidden;
 }
@@ -48,7 +48,7 @@
 }
 
 .auth-card {
-  background: #FAFAFA;
+  background: #fafafa;
   border-radius: 40px;
   padding: 100px 140px;
   width: 100%;
@@ -71,7 +71,7 @@
 .icon-wrapper {
   width: 80%;
   height: 80%;
-  background: linear-gradient(135deg, #E91E63 0%, #EC407A 100%);
+  background: linear-gradient(135deg, #e91e63 0%, #ec407a 100%);
   border-radius: 30px;
   display: flex;
   align-items: center;
@@ -100,7 +100,8 @@
 }
 
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0px) rotate(15deg);
   }
   50% {
@@ -116,9 +117,64 @@
   gap: 18px;
 }
 
+/* Googleログインボタン */
+.google-signin-btn {
+  width: 100%;
+  padding: 14px 24px;
+  font-size: 16px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid #dadce0;
+  background: white;
+  color: #3c4043;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.google-signin-btn:hover {
+  background: #f8f9fa;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.google-signin-btn:active {
+  background: #f1f3f4;
+}
+
+.google-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* 区切り線 */
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 8px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.divider span {
+  padding: 0 16px;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .auth-btn {
   width: 100%;
-  padding: 20px 35px;
+  padding: 14px 35px;
   font-size: 20px;
   font-weight: 700;
   border-radius: 12px;
@@ -130,18 +186,18 @@
 
 .login-btn {
   background: white;
-  color: #E91E63;
-  border: 2px solid #E91E63;
+  color: #e91e63;
+  border: 2px solid #e91e63;
 }
 
 .login-btn:hover {
-  background: #FFF5F8;
+  background: #fff5f8;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(233, 30, 99, 0.2);
 }
 
 .signup-btn {
-  background: linear-gradient(135deg, #E91E63 0%, #EC407A 100%);
+  background: linear-gradient(135deg, #e91e63 0%, #ec407a 100%);
   color: white;
   border: 2px solid transparent;
 }
@@ -229,5 +285,10 @@
   .auth-card {
     padding: 40px 30px;
     gap: 40px;
+  }
+
+  .google-signin-btn {
+    font-size: 14px;
+    padding: 12px 20px;
   }
 }
