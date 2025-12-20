@@ -576,6 +576,63 @@ const Room = ({ onLogout, userId: propUserId }) => {
     }, 500);
   };
 
+  // 検索結果から動画をセッションに追加
+  const handleAddVideoToSession = async (videoId, title) => {
+    if (!userId || !selectedSessionId) {
+      setError('セッションが選択されていません');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 動画情報を取得
+      const videoInfoResponse = await fetch(`${API_BASE_URL}/videos/${videoId}/info`);
+      if (!videoInfoResponse.ok) {
+        throw new Error('動画情報の取得に失敗しました');
+      }
+      const videoInfo = await videoInfoResponse.json();
+
+      // セッションにストリームを追加
+      const response = await fetch(
+        `${API_BASE_URL}/users/${userId}/sessions/${selectedSessionId}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            add_streams: [{
+              talent_id: 0, // TODO: チャンネルIDから配信者IDを取得
+              video_id: videoId,
+              stream_url: `https://www.youtube.com/watch?v=${videoId}`,
+              title: title || videoInfo.title || '動画'
+            }]
+          })
+        }
+      );
+
+      if (response.ok) {
+        // セッション情報を再取得
+        const sessionResponse = await fetch(
+          `${API_BASE_URL}/users/${userId}/sessions/${selectedSessionId}`
+        );
+        if (sessionResponse.ok) {
+          const sessionData = await sessionResponse.json();
+          setCurrentSession(sessionData);
+          setError(null);
+        }
+      } else {
+        const errorData = await response.json();
+        setError(`動画追加エラー: ${errorData.error || '不明なエラー'}`);
+      }
+    } catch (err) {
+      console.error('動画追加エラー:', err);
+      setError(`動画追加エラー: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const swapVideo = async (id, type) => {
     if (!userId || !selectedSessionId) return;
 
@@ -629,8 +686,37 @@ const Room = ({ onLogout, userId: propUserId }) => {
   };
 
   const handleSearch = async () => {
-    if (!searchQuery) return;
-    console.log("バックエンド：APIを叩いてください:", searchQuery);
+    if (!searchQuery.trim()) {
+      setError('検索クエリを入力してください');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSearchResults([]);
+
+    try {
+      const encodedQuery = encodeURIComponent(searchQuery.trim());
+      const response = await fetch(
+        `${API_BASE_URL}/youtube/search?q=${encodedQuery}&max_results=10`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.results || []);
+        if (data.results && data.results.length === 0) {
+          setError('検索結果が見つかりませんでした');
+        }
+      } else {
+        const errorData = await response.json();
+        setError(`検索エラー: ${errorData.error || '不明なエラー'}`);
+      }
+    } catch (err) {
+      console.error('検索エラー:', err);
+      setError(`検索エラー: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -702,26 +788,55 @@ const Room = ({ onLogout, userId: propUserId }) => {
         </div>
         
         <div className="search-results-list">
-          {searchResults.map((video) => (
-            <div
-              key={video.id}
-              className="video-card"
-              draggable
-              onDragStart={(e) =>
-                e.dataTransfer.setData(
-                  "text",
-                  `https://www.youtube.com/watch?v=${video.id}`
-                )
-              }
-            >
-              <div className="thumb-container">
-                <img src={video.thumbnail} alt={video.title} />
-              </div>
-              <div className="video-info">
-                <p className="video-title">{video.title}</p>
-              </div>
+          {loading && (
+            <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>
+              検索中...
             </div>
-          ))}
+          )}
+          {!loading && searchResults.length === 0 && !error && (
+            <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+              検索結果が表示されます
+            </div>
+          )}
+          {error && (
+            <div style={{ padding: '10px', color: '#ff4444', fontSize: '14px' }}>
+              {error}
+            </div>
+          )}
+          {!loading && searchResults.map((video) => {
+            const videoId = video.video_id || video.id;
+            const title = video.title || video.Title;
+            const thumbnail = video.thumbnail_url || video.thumbnail;
+            return (
+              <div
+                key={videoId}
+                className="video-card"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(
+                    "text",
+                    `https://www.youtube.com/watch?v=${videoId}`
+                  );
+                }}
+                onClick={() => {
+                  handleAddVideoToSession(videoId, title);
+                }}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="thumb-container">
+                  <img src={thumbnail} alt={title} />
+                </div>
+                <div className="video-info">
+                  <p className="video-title">{title}</p>
+                  {video.channel_name && (
+                    <p className="video-channel" style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
+                      {video.channel_name}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
         
         <div className="panel-footer">

@@ -31,11 +31,21 @@ type YouTubeSearchResponse struct {
 			VideoID string `json:"videoId"`
 		} `json:"id"`
 		Snippet struct {
-			Title      string `json:"title"`
+			Title        string `json:"title"`
+			Description  string `json:"description"`
+			ChannelID    string `json:"channelId"`
+			ChannelTitle string `json:"channelTitle"`
+			PublishedAt  string `json:"publishedAt"`
 			Thumbnails struct {
 				Default struct {
 					URL string `json:"url"`
 				} `json:"default"`
+				Medium struct {
+					URL string `json:"url"`
+				} `json:"medium"`
+				High struct {
+					URL string `json:"url"`
+				} `json:"high"`
 			} `json:"thumbnails"`
 		} `json:"snippet"`
 	} `json:"items"`
@@ -330,5 +340,75 @@ func getChannelInfo(channelID string) (*ChannelInfo, error) {
 		Description:   item.Snippet.Description,
 		SubscriberCount: item.Statistics.SubscriberCount,
 	}, nil
+}
+
+// 動画検索結果
+type VideoSearchResult struct {
+	VideoID      string `json:"video_id"`
+	Title        string `json:"title"`
+	Description  string `json:"description"`
+	ThumbnailURL string `json:"thumbnail_url"`
+	ChannelID    string `json:"channel_id"`
+	ChannelName  string `json:"channel_name"`
+	PublishedAt  string `json:"published_at"`
+}
+
+// YouTube動画検索
+func searchYouTubeVideos(query string, maxResults int) ([]VideoSearchResult, error) {
+	apiKey, err := getYouTubeAPIKey()
+	if err != nil {
+		log.Printf("エラー: APIキーの取得に失敗 (Query: %s): %v", query, err)
+		return nil, fmt.Errorf("APIキーの取得に失敗: %v", err)
+	}
+
+	// Search API: 動画を検索
+	searchURL := fmt.Sprintf(
+		"https://www.googleapis.com/youtube/v3/search?part=snippet&q=%s&type=video&maxResults=%d&key=%s",
+		query, maxResults, apiKey,
+	)
+
+	log.Printf("YouTube Search API呼び出し: Query=%s, MaxResults=%d", query, maxResults)
+	resp, err := httpClient.Get(searchURL)
+	if err != nil {
+		log.Printf("エラー: YouTube Search API呼び出し失敗 (Query: %s): %v", query, err)
+		return nil, fmt.Errorf("YouTube Search API呼び出し失敗: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("エラー: YouTube Search API エラー (Query: %s, ステータス: %d): %s", query, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("YouTube Search API エラー (ステータス: %d): %s", resp.StatusCode, string(body))
+	}
+
+	var searchResp YouTubeSearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
+		log.Printf("エラー: レスポンスのパースに失敗 (Query: %s): %v", query, err)
+		return nil, fmt.Errorf("レスポンスのパースに失敗: %v", err)
+	}
+
+	// 検索結果を変換
+	results := make([]VideoSearchResult, 0, len(searchResp.Items))
+	for _, item := range searchResp.Items {
+		thumbnailURL := item.Snippet.Thumbnails.Default.URL
+		if item.Snippet.Thumbnails.Medium.URL != "" {
+			thumbnailURL = item.Snippet.Thumbnails.Medium.URL
+		} else if item.Snippet.Thumbnails.High.URL != "" {
+			thumbnailURL = item.Snippet.Thumbnails.High.URL
+		}
+
+		results = append(results, VideoSearchResult{
+			VideoID:      item.ID.VideoID,
+			Title:        item.Snippet.Title,
+			Description:  item.Snippet.Description,
+			ThumbnailURL: thumbnailURL,
+			ChannelID:    item.Snippet.ChannelID,
+			ChannelName:  item.Snippet.ChannelTitle,
+			PublishedAt:  item.Snippet.PublishedAt,
+		})
+	}
+
+	log.Printf("成功: 動画検索完了 (Query: %s, Results: %d)", query, len(results))
+	return results, nil
 }
 

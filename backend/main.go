@@ -505,6 +505,39 @@ func main() {
 		c.JSON(http.StatusOK, info)
 	})
 
+	// YouTube動画検索
+	r.GET("/youtube/search", func(c *gin.Context) {
+		query := c.Query("q")
+		if query == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "検索クエリ（q）が指定されていません"})
+			return
+		}
+
+		maxResultsStr := c.DefaultQuery("max_results", "10")
+		maxResults := 10
+		if parsed, err := fmt.Sscanf(maxResultsStr, "%d", &maxResults); err != nil || parsed != 1 {
+			maxResults = 10
+		}
+		if maxResults < 1 {
+			maxResults = 1
+		}
+		if maxResults > 50 {
+			maxResults = 50
+		}
+
+		results, err := searchYouTubeVideos(query, maxResults)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "動画検索に失敗しました: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"query":   query,
+			"results": results,
+			"count":   len(results),
+		})
+	})
+
 	// --- 音量プリセット管理API ---
 
 	// 推し音量プリセット一覧取得
