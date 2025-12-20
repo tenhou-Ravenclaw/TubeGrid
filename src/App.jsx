@@ -241,7 +241,10 @@ function App() {
 
   // Room画面
   if (currentScreen === 'room') {
-    return <Room onLogout={() => setCurrentScreen('auth')} />;
+    // ローカルストレージからユーザーIDを取得（または最初のユーザーを使用）
+    const storedUserId = localStorage.getItem('tubeGrid_userId');
+    const userId = storedUserId ? parseInt(storedUserId, 10) : null;
+    return <Room onLogout={() => setCurrentScreen('auth')} userId={userId} />;
   }
 
   // デフォルトは認証画面
