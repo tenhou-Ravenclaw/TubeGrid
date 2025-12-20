@@ -39,21 +39,25 @@ function App() {
     }
   }
 
-  // ユーザー一覧取得（未実装のためコメントアウト）
-  // const fetchUsers = async () => {
-  //   setLoading(true)
-  //   try {
-  //     const response = await fetch(`${API_BASE_URL}/users`)
-  //     if (response.ok) {
-  //       const data = await response.json()
-  //       setUsers(data)
-  //     }
-  //   } catch (error) {
-  //     setMessage(`エラー: ${error.message}`)
-  //   } finally {
-  //     setLoading(false)
-  //   }
-  // }
+  // ユーザー一覧取得
+  const fetchUsers = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/users`)
+      if (response.ok) {
+        const data = await response.json()
+        setUsers(data)
+        setMessage('ユーザー一覧を取得しました')
+      } else {
+        const data = await response.json()
+        setMessage(`エラー: ${data.error}`)
+      }
+    } catch (error) {
+      setMessage(`エラー: ${error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // 配信者登録
   const handleRegisterTalent = async () => {
@@ -207,6 +211,7 @@ function App() {
           <h2>👤 ユーザー管理</h2>
           <div className="button-group">
             <button onClick={handleRegisterUser}>ユーザー登録</button>
+            <button onClick={fetchUsers}>ユーザー一覧取得</button>
           </div>
           <p className="info-text">※ ユーザー登録後、登録されたユーザーIDをメモしておいてください</p>
           {users.length > 0 && (
