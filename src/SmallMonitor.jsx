@@ -267,7 +267,7 @@ const SmallMonitor = ({
           left: `${position.x}px`,
           top: `${position.y}px`,
           width: "300px",
-            zIndex: position.zIndex,
+          zIndex: position.zIndex,
         }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
