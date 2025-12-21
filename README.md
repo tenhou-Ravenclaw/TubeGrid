@@ -4,50 +4,44 @@
 
 ## 必要な環境
 
-- Node.js (v18以上推奨)
-- Go (v1.21以上推奨)
+- Node.js 18以降（Vite 7対応）
+- npm
+- Go 1.22+（go.modは1.25指定、1.22以降推奨）
+- Python 3.10+（auth-server用）
 - YouTube Data API v3 のAPIキー
+- Google OAuth 2.0 クライアントID/Secret（Googleログイン用）
 
-## セットアップ
+## セットアップ（クイックスタート）
 
-### 1. リポジトリのクローン
+1. リポジトリ取得
+	```bash
+	git clone <repository-url>
+	cd TubeGrid
+	```
 
-```bash
-git clone <repository-url>
-cd TubeGrid
-```
+2. ルートに .env を作成（バックエンド・auth-server 共通）
+	```env
+	YOUTUBE_API_KEY=your_youtube_api_key
+	GOOGLE_CLIENT_ID=your_google_client_id
+	GOOGLE_CLIENT_SECRET=your_google_client_secret
+	GOOGLE_REDIRECT_URI=http://localhost:8000/auth/callback
+	```
 
-### 2. フロントエンドの依存関係インストール
+3. フロントエンド依存をインストール
+	```bash
+	npm install
+	```
 
-```bash
-npm install
-```
-
-### 3. バックエンドの依存関係インストール
-
-```bash
-cd backend
-go mod download
-cd ..
-```
-
-### 4. 環境変数の設定
-
-`backend`ディレクトリに`.env`ファイルを作成し、YouTube APIキーを設定します：
-
-```env
-YOUTUBE_API_KEY=your_youtube_api_key_here
-```
-
-**YouTube APIキーの取得方法:**
-1. [Google Cloud Console](https://console.cloud.google.com/)にアクセス
-2. プロジェクトを作成（または既存のプロジェクトを選択）
-3. 「APIとサービス」→「認証情報」からAPIキーを作成
-4. 「YouTube Data API v3」を有効化
+4. バックエンド依存を取得
+	```bash
+	cd backend
+	go mod download
+	cd ..
+	```
 
 ## 起動方法
 
-### バックエンドの起動
+### 1) Go バックエンド (Gin + SQLite)
 
 **Windows (PowerShell):**
 ```powershell
@@ -56,27 +50,45 @@ $env:CGO_ENABLED='0'
 go run .
 ```
 
-**Linux/Mac:**
+**macOS/Linux:**
 ```bash
 cd backend
 CGO_ENABLED=0 go run .
 ```
 
-**重要:**
-- `go run main.go`ではなく、`go run .`を使用してください
-- `CGO_ENABLED=0`を設定することで、CGO不要の`modernc.org/sqlite`ドライバーが使用されます
+- サービス: http://localhost:8080
+- SQLite DB: backend/user.db （auth-server と共有）
+- `go run .` を使用してください（単一ファイル指定ではなくディレクトリ指定）。
 
-バックエンドは `http://localhost:8080` で起動します。
+### 2) auth-server (FastAPI + Google OAuth)
 
-### フロントエンドの起動
+**Windows (PowerShell):**
+```powershell
+cd auth-server
+.\.venv\Scripts\activate
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
 
-別のターミナルで：
+**macOS/Linux:**
+```bash
+cd auth-server
+source .venv/bin/activate
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
 
+- サービス: http://localhost:8000
+- コールバックURIは .env の `GOOGLE_REDIRECT_URI` と一致させてください（例: http://localhost:8000/auth/callback）。
+- Gin側の SQLite (backend/user.db) を参照します。バックエンドを先に起動しておくと初期化が安定します。
+
+### 3) フロントエンド (Vite + React)
+
+別ターミナルで:
 ```bash
 npm run dev
 ```
 
-フロントエンドは `http://localhost:5173` で起動します。
+- サービス: http://localhost:5173
+- CORS は http://localhost:5173 が許可済みです。
 
 ## 使い方
 
@@ -120,13 +132,22 @@ npm run dev
 - フロントエンドの `API_BASE_URL` が正しいか確認（`src/ApiTest.jsx`、`src/App.jsx`）
 
 ### YouTube APIエラーが発生する場合
-- `backend/.env`ファイルに `YOUTUBE_API_KEY` が設定されているか確認
+- ルート`.env`に `YOUTUBE_API_KEY` が設定されているか確認
 - APIキーが有効か確認
 - YouTube Data API v3が有効になっているか確認
+
+### Google認証でエラーが発生する場合
+- ルート`.env`の `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`GOOGLE_REDIRECT_URI` を確認
+- Cloud ConsoleでOAuth同意画面とリダイレクトURIが一致しているか確認
+
+### auth-serverがDBに接続できない場合
+- `backend/user.db` が作成済みか確認（バックエンド起動で自動生成）
+- auth-serverを実行するカレントディレクトリが `auth-server` であることを確認
 
 ### ポートが既に使用されている場合
 - バックエンド: ポート8080を使用しているプロセスを確認・停止
 - フロントエンド: ポート5173を使用しているプロセスを確認・停止
+- auth-server: ポート8000を使用しているプロセスを確認・停止
 
 ## 開発
 
