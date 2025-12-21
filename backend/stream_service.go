@@ -4,9 +4,38 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"regexp"
+	"time"
 
 	"gorm.io/gorm"
 )
+
+// 盛り上がり単語リスト
+var SurgeKeywords = []string{
+	"w", "W", "草", "kusa", "KUSA",
+	"8888", "888", "88",
+	"！", "！？", "！？", "!!!",
+	"lol", "LOL", "笑", "www",
+	"かわいい", "すごい", "すげえ", "やばい",
+	"神", "尊い", "尊", "推し",
+}
+
+// 盛り上がり単語を検出
+func detectSurgeKeywords(commentText string) bool {
+	textLower := strings.ToLower(commentText)
+	for _, keyword := range SurgeKeywords {
+		// 大文字小文字を区別しない検索
+		if strings.Contains(textLower, strings.ToLower(keyword)) {
+			return true
+		}
+	}
+	// 感嘆符のパターンもチェック
+	exclamationPattern := regexp.MustCompile(`[！!]{2,}`)
+	if exclamationPattern.MatchString(commentText) {
+		return true
+	}
+	return false
+}
 
 // 配信状態取得関数（プラットフォーム判定と結果正規化）
 func getStreamStatus(talent Talent) (*StreamStatus, error) {
@@ -135,5 +164,179 @@ func extractVideoIDFromURL(url string) string {
 		}
 	}
 	return ""
+}
+
+// コメント増加量スコア計算
+func calculateCommentGrowthScore(current CommentSnapshot, history []CommentSnapshot) float64 {
+	if len(history) < 3 {
+		return 0.0
+	}
+
+	// 過去5分間の平均コメント数
+	recentTime := current.Timestamp.Add(-5 * time.Minute)
+	recentCount := 0
+	recentSamples := 0
+
+	for _, h := range history {
+		if h.Timestamp.After(recentTime) {
+			recentCount += h.CommentCount
+			recentSamples++
+		}
+	}
+
+	if recentSamples == 0 {
+		return 0.0
+	}
+
+	avgRecentComments := float64(recentCount) / float64(recentSamples)
+
+	// 現在のコメント数との比較
+	growthRate := 0.0
+	if avgRecentComments > 0 {
+		growthRate = float64(current.CommentCount) / avgRecentComments
+	}
+
+	// スコア化（0.0-1.0）
+	score := 0.0
+	if growthRate > 3.0 {
+		score = 1.0 // 3倍以上で最大
+	} else if growthRate > 2.0 {
+		score = 0.7
+	} else if growthRate > 1.5 {
+		score = 0.5
+	} else if growthRate > 1.2 {
+		score = 0.3
+	} else if growthRate > 1.0 {
+		score = 0.1
+	}
+
+	return score
+}
+
+// 盛り上がり単語含有率スコア計算
+func calculateKeywordScore(analysis CommentAnalysis) float64 {
+	// 含有率に基づいてスコア化
+	rate := analysis.SurgeKeywordRate
+
+	score := 0.0
+	if rate > 0.5 {
+		score = 1.0 // 50%以上で最大
+	} else if rate > 0.3 {
+		score = 0.7
+	} else if rate > 0.2 {
+		score = 0.5
+	} else if rate > 0.1 {
+		score = 0.3
+	} else if rate > 0.05 {
+		score = 0.1
+	}
+
+	return score
+}
+
+// スーパーチャットスコア計算
+func calculateSuperChatScore(amount float64, count int, viewerCount int) float64 {
+	score := 0.0
+
+	// スーパーチャット件数ベース
+	if count > 10 {
+		score += 0.5 // 10件以上で0.5点
+	} else if count > 5 {
+		score += 0.3
+	} else if count > 2 {
+		score += 0.1
+	}
+
+	// スーパーチャット金額ベース（視聴者数で正規化）
+	if viewerCount > 0 {
+		amountPerViewer := amount / float64(viewerCount)
+		if amountPerViewer > 1.0 {
+			score += 0.5 // 1円/視聴者以上で0.5点
+		} else if amountPerViewer > 0.5 {
+			score += 0.3
+		} else if amountPerViewer > 0.1 {
+			score += 0.1
+		}
+	} else {
+		// 視聴者数が不明な場合、絶対額で判定
+		if amount > 1000 {
+			score += 0.5
+		} else if amount > 500 {
+			score += 0.3
+		} else if amount > 100 {
+			score += 0.1
+		}
+	}
+
+	// スコアを0.0-1.0に正規化
+	if score > 1.0 {
+		score = 1.0
+	}
+
+	return score
+}
+
+// 盛り上がりスコア計算（重み付け版）
+func calculateSurgeScore(
+	videoID string,
+	talentID uint,
+	current CommentSnapshot,
+	currentAnalysis CommentAnalysis,
+	superChatAmount float64,
+	superChatCount int,
+	history []CommentSnapshot,
+	weights SurgeWeightSettings,
+) SurgeMetrics {
+	metrics := SurgeMetrics{
+		VideoID:  videoID,
+		TalentID: talentID,
+	}
+
+	// 1. コメント増加量スコア（0.0-1.0）
+	commentGrowthScore := calculateCommentGrowthScore(current, history)
+	metrics.CommentGrowthScore = commentGrowthScore
+
+	// 2. 盛り上がり単語含有率スコア（0.0-1.0）
+	keywordScore := calculateKeywordScore(currentAnalysis)
+	metrics.KeywordScore = keywordScore
+
+	// 3. スーパーチャットスコア（0.0-1.0）
+	superChatScore := calculateSuperChatScore(superChatAmount, superChatCount, current.ViewerCount)
+	metrics.SuperChatScore = superChatScore
+
+	// 4. 総合スコア（重み付け平均）
+	metrics.SurgeScore = commentGrowthScore*weights.CommentGrowthWeight +
+		keywordScore*weights.KeywordWeight +
+		superChatScore*weights.SuperChatWeight
+
+	// スコアを0.0-1.0の範囲に正規化
+	if metrics.SurgeScore > 1.0 {
+		metrics.SurgeScore = 1.0
+	}
+
+	// コメント速度の計算
+	if len(history) > 0 {
+		oldest := history[0]
+		timeDiff := current.Timestamp.Sub(oldest.Timestamp).Seconds()
+		commentDiff := current.CommentCount - oldest.CommentCount
+		if timeDiff > 0 {
+			metrics.CommentRate = float64(commentDiff) / timeDiff
+		}
+	}
+
+	// コメント増加率の計算
+	if len(history) >= 5 {
+		var totalComments int
+		for _, h := range history {
+			totalComments += h.CommentCount
+		}
+		avgComments := float64(totalComments) / float64(len(history))
+		if avgComments > 0 {
+			metrics.CommentGrowthRate = float64(current.CommentCount) / avgComments
+		}
+	}
+
+	metrics.LastUpdated = time.Now()
+	return metrics
 }
 

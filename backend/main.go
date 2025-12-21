@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	_ "modernc.org/sqlite"
@@ -19,11 +22,15 @@ import (
 
 // --- グローバル変数 ---
 var (
-	eventHistory  = make(map[uint][]StreamEvent)
-	eventMutex    sync.Mutex
-	streamCache   = make(map[uint]CacheItem)
-	cacheMutex    sync.RWMutex
-	cacheDuration = 1 * time.Minute
+	eventHistory        = make(map[uint][]StreamEvent)
+	eventMutex          sync.Mutex
+	streamCache         = make(map[uint]CacheItem)
+	cacheMutex          sync.RWMutex
+	cacheDuration       = 1 * time.Minute
+	commentHistory      = make(map[string][]CommentSnapshot)
+	commentHistoryMutex sync.RWMutex
+	surgeMetricsCache   = make(map[string]SurgeMetrics)
+	surgeMetricsMutex   sync.RWMutex
 )
 
 // --- ロジック関数 ---
@@ -77,7 +84,21 @@ func getStreamStatusWithCache(t Talent) (*StreamStatus, error) {
 }
 
 func main() {
-	_ = godotenv.Load()
+	// #region agent log
+	err := godotenv.Load()
+	if err != nil {
+		log.Printf("[DEBUG] godotenv.Load() エラー: %v", err)
+	} else {
+		log.Printf("[DEBUG] godotenv.Load() 成功")
+	}
+	// .envファイルの内容を確認（APIキーの存在のみ）
+	apiKey := os.Getenv("YOUTUBE_API_KEY")
+	if apiKey != "" {
+		log.Printf("[DEBUG] YOUTUBE_API_KEY が読み込まれました (長さ: %d)", len(apiKey))
+	} else {
+		log.Printf("[DEBUG] YOUTUBE_API_KEY が設定されていません")
+	}
+	// #endregion
 
 	dbPath := filepath.Join(".", "user.db")
 	sqlDB, err := sql.Open("sqlite", dbPath)
@@ -90,7 +111,7 @@ func main() {
 		log.Fatalf("GORM初期化失敗: %v", err)
 	}
 	log.Println("データベース接続成功")
-	db.AutoMigrate(&User{}, &Talent{}, &Group{}, &RoomLayout{}, &ViewingSession{}, &SessionStream{}, &OshiVolumePreset{})
+	db.AutoMigrate(&User{}, &Talent{}, &Group{}, &RoomLayout{}, &ViewingSession{}, &SessionStream{}, &OshiVolumePreset{}, &SurgeWeightSettings{})
 
 	r := gin.Default()
 
@@ -108,13 +129,83 @@ func main() {
 
 	// 各種エンドポイント
 	r.POST("/register", func(c *gin.Context) {
-		var user User
-		if err := c.ShouldBindJSON(&user); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+		var req struct {
+			Name     string `json:"name" binding:"required"`
+			Email    string `json:"email" binding:"required,email"`
+			Password string `json:"password" binding:"required,min=8"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "入力データが正しくありません: " + err.Error()})
 			return
 		}
-		db.Create(&user)
-		c.JSON(200, user)
+
+		// メール重複チェック
+		var existingUser User
+		if err := db.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "このメールアドレスは既に登録されています"})
+			return
+		}
+
+		// パスワードハッシュ化
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "パスワードのハッシュ化に失敗しました"})
+			return
+		}
+
+		// ユーザー作成
+		user := User{
+			Name:     req.Name,
+			Email:    req.Email,
+			Password: string(hashedPassword),
+		}
+		if err := db.Create(&user).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ユーザーの登録に失敗しました: " + err.Error()})
+			return
+		}
+
+		// パスワードを除外してレスポンス
+		user.Password = ""
+		c.JSON(http.StatusOK, user)
+	})
+
+	// ログインAPI
+	r.POST("/login", func(c *gin.Context) {
+		var req struct {
+			Email    string `json:"email" binding:"required,email"`
+			Password string `json:"password" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "入力データが正しくありません: " + err.Error()})
+			return
+		}
+
+		// ユーザー検索
+		var user User
+		if err := db.Where("email = ?", req.Email).First(&user).Error; err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "メールアドレスまたはパスワードが正しくありません"})
+			return
+		}
+
+		// パスワード検証
+		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "メールアドレスまたはパスワードが正しくありません"})
+			return
+		}
+
+		// ログイン成功 - シンプルなトークン（後でJWTに置き換え可能）
+		// ここではユーザーIDをトークンとして使用（本番環境ではJWT推奨）
+		token := fmt.Sprintf("user_%d_%d", user.ID, time.Now().Unix())
+
+		// パスワードを除外してレスポンス
+		user.Password = ""
+		c.JSON(http.StatusOK, gin.H{
+			"token":   token,
+			"user":    user,
+			"message": "ログイン成功",
+		})
 	})
 
 	// ユーザー一覧取得
@@ -411,7 +502,10 @@ func main() {
 			layouts[i].UserID = userIDUint
 		}
 		if err := db.Create(&layouts).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "レイアウトの保存に失敗しました"})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "レイアウトの保存に失敗しました",
+				"details": err.Error(),
+			})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "レイアウトを保存しました", "layouts": layouts})
@@ -503,6 +597,39 @@ func main() {
 			return
 		}
 		c.JSON(http.StatusOK, info)
+	})
+
+	// YouTube動画検索
+	r.GET("/youtube/search", func(c *gin.Context) {
+		query := c.Query("q")
+		if query == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "検索クエリ（q）が指定されていません"})
+			return
+		}
+
+		maxResultsStr := c.DefaultQuery("max_results", "10")
+		maxResults := 10
+		if parsed, err := fmt.Sscanf(maxResultsStr, "%d", &maxResults); err != nil || parsed != 1 {
+			maxResults = 10
+		}
+		if maxResults < 1 {
+			maxResults = 1
+		}
+		if maxResults > 50 {
+			maxResults = 50
+		}
+
+		results, err := searchYouTubeVideos(query, maxResults)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "動画検索に失敗しました: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"query":   query,
+			"results": results,
+			"count":   len(results),
+		})
 	})
 
 	// --- 音量プリセット管理API ---
@@ -828,27 +955,14 @@ func main() {
 			session.SessionName = *updateData.SessionName
 		}
 
-		// メイン入れ替え
-		if updateData.MainStreamID != nil {
-			// 既存のメインを解除
-			for i := range session.Streams {
-				session.Streams[i].IsMain = false
-			}
-			// 新しいメインを設定
-			for i := range session.Streams {
-				if session.Streams[i].ID == *updateData.MainStreamID {
-					session.Streams[i].IsMain = true
-					break
-				}
-			}
-		}
-
 		// 配信の削除
 		if len(updateData.RemoveStreamIDs) > 0 {
 			if err := db.Where("session_id = ? AND id IN ?", session.ID, updateData.RemoveStreamIDs).Delete(&SessionStream{}).Error; err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "ストリームの削除に失敗しました"})
 				return
 			}
+			// 削除後にストリームリストを再読み込み
+			db.Preload("Streams").First(&session, session.ID)
 		}
 
 		// 配信の追加
@@ -876,6 +990,28 @@ func main() {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "ストリームの追加に失敗しました"})
 				return
 			}
+			// 追加後にストリームリストを再読み込み
+			db.Preload("Streams").First(&session, session.ID)
+		}
+
+		// メイン入れ替え（削除・追加後に処理）
+		if updateData.MainStreamID != nil {
+			// 既存のメインを解除
+			for i := range session.Streams {
+				session.Streams[i].IsMain = false
+			}
+			// 新しいメインを設定
+			for i := range session.Streams {
+				if session.Streams[i].ID == *updateData.MainStreamID {
+					session.Streams[i].IsMain = true
+					break
+				}
+			}
+			// メインストリームの変更を保存
+			if err := db.Save(&session.Streams).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "セッションの更新に失敗しました"})
+				return
+			}
 		}
 
 		// 音量更新
@@ -890,12 +1026,6 @@ func main() {
 					return
 				}
 			}
-		}
-
-		// ストリームの更新を保存
-		if err := db.Save(&session.Streams).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "セッションの更新に失敗しました"})
-			return
 		}
 
 		// セッションを保存
@@ -937,6 +1067,215 @@ func main() {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "セッションの削除が完了しました"})
+	})
+
+	// 盛り上がり配信取得API
+	r.GET("/users/:id/sessions/:session_id/surge-streams", func(c *gin.Context) {
+		var user User
+		if err := db.First(&user, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+			return
+		}
+
+		var session ViewingSession
+		if err := db.Preload("Streams").Where("id = ? AND user_id = ?", c.Param("session_id"), c.Param("id")).First(&session).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "セッションが見つかりません"})
+			return
+		}
+
+		// ユーザーの重み設定を取得（デフォルト値を使用）
+		var weightSettings SurgeWeightSettings
+		if err := db.Where("user_id = ?", user.ID).First(&weightSettings).Error; err != nil {
+			// デフォルト値を使用
+			weightSettings = SurgeWeightSettings{
+				CommentGrowthWeight: 0.5,
+				KeywordWeight:       0.3,
+				SuperChatWeight:     0.2,
+			}
+		}
+
+		var surgeStreams []SurgeMetrics
+
+		// 並列処理で各ストリームのコメント・スーパーチャットを取得
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+
+		for _, stream := range session.Streams {
+			videoID := stream.VideoID
+			if videoID == "" {
+				continue
+			}
+
+			wg.Add(1)
+			go func(s SessionStream, vID string) {
+				defer wg.Done()
+
+				// コメント分析を取得
+				commentAnalysis, err := getYouTubeComments(vID, 100) // 最新100件
+				if err != nil {
+					log.Printf("コメント取得エラー (VideoID: %s): %v", vID, err)
+					// エラーが発生した場合、空の分析結果を使用して続行
+					commentAnalysis = &CommentAnalysis{
+						TotalComments:     0,
+						SurgeKeywordCount: 0,
+						SurgeKeywordRate:  0.0,
+						UniqueUsers:       0,
+					}
+				}
+
+				// スーパーチャット取得
+				superChatAmount, superChatCount, err := getYouTubeSuperChats(vID, 50)
+				if err != nil {
+					log.Printf("スーパーチャット取得エラー (VideoID: %s): %v", vID, err)
+					// エラーでも続行（スーパーチャットは0として扱う）
+				}
+
+				// 現在のスナップショット
+				currentSnapshot := CommentSnapshot{
+					VideoID:      vID,
+					CommentCount: commentAnalysis.TotalComments,
+					ViewerCount:  0, // 必要に応じて取得
+					Timestamp:    time.Now(),
+				}
+
+				// 履歴を取得
+				commentHistoryMutex.RLock()
+				history := commentHistory[vID]
+				commentHistoryMutex.RUnlock()
+
+				// スコア計算
+				metrics := calculateSurgeScore(
+					vID,
+					s.TalentID,
+					currentSnapshot,
+					*commentAnalysis,
+					superChatAmount,
+					superChatCount,
+					history,
+					weightSettings,
+				)
+
+				// 履歴を更新（最新20件を保持）
+				commentHistoryMutex.Lock()
+				history = append(history, currentSnapshot)
+				if len(history) > 20 {
+					history = history[len(history)-20:]
+				}
+				// 30分以上前のデータを削除
+				cutoffTime := time.Now().Add(-30 * time.Minute)
+				filteredHistory := []CommentSnapshot{}
+				for _, h := range history {
+					if h.Timestamp.After(cutoffTime) {
+						filteredHistory = append(filteredHistory, h)
+					}
+				}
+				commentHistory[vID] = filteredHistory
+				commentHistoryMutex.Unlock()
+
+				// キャッシュを更新
+				surgeMetricsMutex.Lock()
+				surgeMetricsCache[vID] = metrics
+				surgeMetricsMutex.Unlock()
+
+				mu.Lock()
+				surgeStreams = append(surgeStreams, metrics)
+				mu.Unlock()
+			}(stream, videoID)
+		}
+
+		wg.Wait()
+
+		// スコア順にソート
+		sort.Slice(surgeStreams, func(i, j int) bool {
+			return surgeStreams[i].SurgeScore > surgeStreams[j].SurgeScore
+		})
+
+		c.JSON(http.StatusOK, gin.H{
+			"streams":    surgeStreams,
+			"updated_at": time.Now(),
+		})
+	})
+
+	// ユーザー重み設定取得API
+	r.GET("/users/:id/surge-weights", func(c *gin.Context) {
+		var user User
+		if err := db.First(&user, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+			return
+		}
+
+		var weightSettings SurgeWeightSettings
+		if err := db.Where("user_id = ?", user.ID).First(&weightSettings).Error; err != nil {
+			// デフォルト値を返す
+			c.JSON(http.StatusOK, SurgeWeightSettings{
+				CommentGrowthWeight: 0.5,
+				KeywordWeight:       0.3,
+				SuperChatWeight:     0.2,
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, weightSettings)
+	})
+
+	// ユーザー重み設定更新API
+	r.PUT("/users/:id/surge-weights", func(c *gin.Context) {
+		var user User
+		if err := db.First(&user, c.Param("id")).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+			return
+		}
+
+		var updateData struct {
+			CommentGrowthWeight float64 `json:"comment_growth_weight"`
+			KeywordWeight       float64 `json:"keyword_weight"`
+			SuperChatWeight     float64 `json:"super_chat_weight"`
+		}
+
+		if err := c.ShouldBindJSON(&updateData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "入力データが正しくありません: " + err.Error()})
+			return
+		}
+
+		// バリデーション: 重みの合計を確認
+		totalWeight := updateData.CommentGrowthWeight + updateData.KeywordWeight + updateData.SuperChatWeight
+		if totalWeight <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "重みの合計が0以下です"})
+			return
+		}
+
+		// 自動正規化（合計が1.0になるように）
+		if totalWeight != 1.0 {
+			updateData.CommentGrowthWeight /= totalWeight
+			updateData.KeywordWeight /= totalWeight
+			updateData.SuperChatWeight /= totalWeight
+		}
+
+		var weightSettings SurgeWeightSettings
+		if err := db.Where("user_id = ?", user.ID).First(&weightSettings).Error; err != nil {
+			// 新規作成
+			weightSettings = SurgeWeightSettings{
+				UserID:              user.ID,
+				CommentGrowthWeight: updateData.CommentGrowthWeight,
+				KeywordWeight:       updateData.KeywordWeight,
+				SuperChatWeight:     updateData.SuperChatWeight,
+			}
+			if err := db.Create(&weightSettings).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "重み設定の保存に失敗しました"})
+				return
+			}
+		} else {
+			// 更新
+			weightSettings.CommentGrowthWeight = updateData.CommentGrowthWeight
+			weightSettings.KeywordWeight = updateData.KeywordWeight
+			weightSettings.SuperChatWeight = updateData.SuperChatWeight
+			if err := db.Save(&weightSettings).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "重み設定の更新に失敗しました"})
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, weightSettings)
 	})
 
 	r.Run()

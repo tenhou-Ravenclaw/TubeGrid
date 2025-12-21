@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 )
@@ -17,7 +18,11 @@ var httpClient = &http.Client{
 
 // YouTube API Key取得と検証
 func getYouTubeAPIKey() (string, error) {
+	// #region agent log
 	apiKey := os.Getenv("YOUTUBE_API_KEY")
+	apiKeyLen := len(apiKey)
+	log.Printf("[DEBUG] getYouTubeAPIKey: apiKey存在=%v, 長さ=%d", apiKey != "", apiKeyLen)
+	// #endregion
 	if apiKey == "" {
 		return "", fmt.Errorf("YOUTUBE_API_KEY環境変数が設定されていません")
 	}
@@ -31,11 +36,21 @@ type YouTubeSearchResponse struct {
 			VideoID string `json:"videoId"`
 		} `json:"id"`
 		Snippet struct {
-			Title      string `json:"title"`
+			Title        string `json:"title"`
+			Description  string `json:"description"`
+			ChannelID    string `json:"channelId"`
+			ChannelTitle string `json:"channelTitle"`
+			PublishedAt  string `json:"publishedAt"`
 			Thumbnails struct {
 				Default struct {
 					URL string `json:"url"`
 				} `json:"default"`
+				Medium struct {
+					URL string `json:"url"`
+				} `json:"medium"`
+				High struct {
+					URL string `json:"url"`
+				} `json:"high"`
 			} `json:"thumbnails"`
 		} `json:"snippet"`
 	} `json:"items"`
@@ -330,5 +345,229 @@ func getChannelInfo(channelID string) (*ChannelInfo, error) {
 		Description:   item.Snippet.Description,
 		SubscriberCount: item.Statistics.SubscriberCount,
 	}, nil
+}
+
+// 動画検索結果
+type VideoSearchResult struct {
+	VideoID      string `json:"video_id"`
+	Title        string `json:"title"`
+	Description  string `json:"description"`
+	ThumbnailURL string `json:"thumbnail_url"`
+	ChannelID    string `json:"channel_id"`
+	ChannelName  string `json:"channel_name"`
+	PublishedAt  string `json:"published_at"`
+}
+
+// YouTubeコメント取得レスポンス構造体
+type YouTubeCommentResponse struct {
+	Items []struct {
+		Snippet struct {
+			TopLevelComment struct {
+				Snippet struct {
+					TextDisplay string `json:"textDisplay"`
+					AuthorName  string `json:"authorDisplayName"`
+					PublishedAt string `json:"publishedAt"`
+					LikeCount    int    `json:"likeCount"`
+				} `json:"snippet"`
+			} `json:"topLevelComment"`
+		} `json:"snippet"`
+	} `json:"items"`
+	PageInfo struct {
+		TotalResults int `json:"totalResults"`
+	} `json:"pageInfo"`
+}
+
+// YouTubeスーパーチャット取得レスポンス構造体
+type YouTubeSuperChatResponse struct {
+	Items []struct {
+		Snippet struct {
+			AmountMicros string `json:"amountMicros"`
+			Currency     string `json:"currency"`
+			DisplayName  string `json:"displayName"`
+			MessageText  string `json:"messageText"`
+		} `json:"snippet"`
+	} `json:"items"`
+}
+
+// YouTube動画検索
+func searchYouTubeVideos(query string, maxResults int) ([]VideoSearchResult, error) {
+	apiKey, err := getYouTubeAPIKey()
+	if err != nil {
+		log.Printf("エラー: APIキーの取得に失敗 (Query: %s): %v", query, err)
+		return nil, fmt.Errorf("APIキーの取得に失敗: %v", err)
+	}
+
+	// Search API: 動画を検索
+	// URLエンコードを使用してクエリパラメータを正しくエンコード
+	baseURL := "https://www.googleapis.com/youtube/v3/search"
+	params := url.Values{}
+	params.Set("part", "snippet")
+	params.Set("q", query)
+	params.Set("type", "video")
+	params.Set("maxResults", fmt.Sprintf("%d", maxResults))
+	params.Set("key", apiKey)
+	searchURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
+
+	log.Printf("YouTube Search API呼び出し: Query=%s, MaxResults=%d", query, maxResults)
+	resp, err := httpClient.Get(searchURL)
+	if err != nil {
+		log.Printf("エラー: YouTube Search API呼び出し失敗 (Query: %s): %v", query, err)
+		return nil, fmt.Errorf("YouTube Search API呼び出し失敗: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("エラー: YouTube Search API エラー (Query: %s, ステータス: %d): %s", query, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("YouTube Search API エラー (ステータス: %d): %s", resp.StatusCode, string(body))
+	}
+
+	var searchResp YouTubeSearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
+		log.Printf("エラー: レスポンスのパースに失敗 (Query: %s): %v", query, err)
+		return nil, fmt.Errorf("レスポンスのパースに失敗: %v", err)
+	}
+
+	// 検索結果を変換
+	results := make([]VideoSearchResult, 0, len(searchResp.Items))
+	for _, item := range searchResp.Items {
+		thumbnailURL := item.Snippet.Thumbnails.Default.URL
+		if item.Snippet.Thumbnails.Medium.URL != "" {
+			thumbnailURL = item.Snippet.Thumbnails.Medium.URL
+		} else if item.Snippet.Thumbnails.High.URL != "" {
+			thumbnailURL = item.Snippet.Thumbnails.High.URL
+		}
+
+		results = append(results, VideoSearchResult{
+			VideoID:      item.ID.VideoID,
+			Title:        item.Snippet.Title,
+			Description:  item.Snippet.Description,
+			ThumbnailURL: thumbnailURL,
+			ChannelID:    item.Snippet.ChannelID,
+			ChannelName:  item.Snippet.ChannelTitle,
+			PublishedAt:  item.Snippet.PublishedAt,
+		})
+	}
+
+	log.Printf("成功: 動画検索完了 (Query: %s, Results: %d)", query, len(results))
+	return results, nil
+}
+
+// YouTubeコメント取得（最新N件）
+func getYouTubeComments(videoID string, maxResults int) (*CommentAnalysis, error) {
+	apiKey, err := getYouTubeAPIKey()
+	if err != nil {
+		return nil, err
+	}
+
+	// CommentThreads API: コメントを取得
+	commentURL := fmt.Sprintf(
+		"https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=%s&maxResults=%d&order=time&key=%s",
+		videoID, maxResults, apiKey,
+	)
+
+	resp, err := httpClient.Get(commentURL)
+	if err != nil {
+		log.Printf("エラー: コメント取得失敗 (VideoID: %s): %v", videoID, err)
+		return nil, fmt.Errorf("コメント取得失敗: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		// コメントが無効化されている場合（403）やその他のエラーは、空の分析結果を返す
+		if resp.StatusCode == 403 {
+			log.Printf("情報: コメントが無効化されています (VideoID: %s)", videoID)
+			return &CommentAnalysis{
+				TotalComments:     0,
+				SurgeKeywordCount: 0,
+				SurgeKeywordRate:  0.0,
+				UniqueUsers:       0,
+			}, nil
+		}
+		log.Printf("エラー: コメント取得APIエラー (VideoID: %s, ステータス: %d): %s", videoID, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("コメント取得APIエラー: %d", resp.StatusCode)
+	}
+
+	var commentData YouTubeCommentResponse
+	if err := json.NewDecoder(resp.Body).Decode(&commentData); err != nil {
+		log.Printf("エラー: コメント解析失敗 (VideoID: %s): %v", videoID, err)
+		return nil, fmt.Errorf("コメント解析失敗: %v", err)
+	}
+
+	analysis := &CommentAnalysis{
+		TotalComments: commentData.PageInfo.TotalResults,
+	}
+
+	// 盛り上がり単語の検出（stream_service.goの関数を使用）
+	uniqueUsers := make(map[string]bool)
+	surgeKeywordCount := 0
+
+	for _, item := range commentData.Items {
+		text := item.Snippet.TopLevelComment.Snippet.TextDisplay
+		author := item.Snippet.TopLevelComment.Snippet.AuthorName
+
+		// ユニークユーザー数
+		uniqueUsers[author] = true
+
+		// 盛り上がり単語含有チェック（stream_service.goの関数を使用）
+		if detectSurgeKeywords(text) {
+			surgeKeywordCount++
+		}
+	}
+
+	analysis.UniqueUsers = len(uniqueUsers)
+	analysis.SurgeKeywordCount = surgeKeywordCount
+	if len(commentData.Items) > 0 {
+		analysis.SurgeKeywordRate = float64(surgeKeywordCount) / float64(len(commentData.Items))
+	}
+
+	return analysis, nil
+}
+
+// YouTubeスーパーチャット取得
+func getYouTubeSuperChats(videoID string, maxResults int) (float64, int, error) {
+	apiKey, err := getYouTubeAPIKey()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	// SuperChatEvents API: スーパーチャットを取得
+	// 注意: このAPIは配信者のみがアクセス可能な場合があります
+	superChatURL := fmt.Sprintf(
+		"https://www.googleapis.com/youtube/v3/superChatEvents?part=snippet&snippet.videoId=%s&maxResults=%d&key=%s",
+		videoID, maxResults, apiKey,
+	)
+
+	resp, err := httpClient.Get(superChatURL)
+	if err != nil {
+		// スーパーチャットAPIが利用できない場合は0を返す（エラーログは出力しない）
+		return 0, 0, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		// 403 Forbidden、401 Unauthorized などの場合は0を返す（エラーログは出力しない）
+		// スーパーチャットAPIは配信者のみアクセス可能なため、エラーは正常なケース
+		return 0, 0, nil
+	}
+
+	var superChatData YouTubeSuperChatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&superChatData); err != nil {
+		log.Printf("エラー: スーパーチャット解析失敗 (VideoID: %s): %v", videoID, err)
+		return 0, 0, fmt.Errorf("スーパーチャット解析失敗: %v", err)
+	}
+
+	totalAmount := 0.0
+	count := len(superChatData.Items)
+
+	for _, item := range superChatData.Items {
+		// amountMicrosはマイクロ単位（1000000マイクロ = 1円）
+		var amountMicros int64
+		fmt.Sscanf(item.Snippet.AmountMicros, "%d", &amountMicros)
+		totalAmount += float64(amountMicros) / 1000000.0
+	}
+
+	return totalAmount, count, nil
 }
 

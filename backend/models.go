@@ -12,6 +12,7 @@ type User struct {
 	gorm.Model
 	Name          string             `json:"name" binding:"required"`
 	Email         string             `json:"email" binding:"required,email" gorm:"unique"`
+	Password      string             `json:"-" gorm:"not null"` // JSONから除外、DBに保存
 	DefaultVolume int                `json:"default_volume" gorm:"default:50"`
 	LayoutSetting string             `json:"layout_setting" gorm:"default:'grid'"`
 	Favorites     []Talent           `gorm:"many2many:user_favorites;" json:"favorites"`
@@ -105,4 +106,50 @@ type StreamEvent struct {
 	ChatCount   int     `json:"chat_count"`
 	SuperChat   float64 `json:"super_chat"`
 	Timestamp   time.Time
+}
+
+// コメントスナップショット（時系列データ）
+type CommentSnapshot struct {
+	VideoID      string    `json:"video_id"`
+	CommentCount int       `json:"comment_count"`
+	ViewerCount  int       `json:"viewer_count"`
+	Timestamp    time.Time `json:"timestamp"`
+}
+
+// コメント分析結果
+type CommentAnalysis struct {
+	TotalComments     int     `json:"total_comments"`
+	SurgeKeywordCount int     `json:"surge_keyword_count"` // 盛り上がり単語含有数
+	SurgeKeywordRate  float64 `json:"surge_keyword_rate"`  // 盛り上がり単語含有率
+	SuperChatAmount   float64 `json:"super_chat_amount"`   // スーパーチャット総額
+	SuperChatCount    int     `json:"super_chat_count"`     // スーパーチャット件数
+	UniqueUsers       int     `json:"unique_users"`         // ユニークユーザー数
+}
+
+// 盛り上がりメトリクス
+type SurgeMetrics struct {
+	VideoID            string    `json:"video_id"`
+	TalentID           uint      `json:"talent_id"`
+	
+	// 各指標のスコア（0.0-1.0）
+	CommentGrowthScore float64   `json:"comment_growth_score"`  // コメント増加量スコア
+	KeywordScore       float64   `json:"keyword_score"`         // 盛り上がり単語含有率スコア
+	SuperChatScore     float64   `json:"super_chat_score"`     // スーパーチャットスコア
+	
+	// 総合スコア
+	SurgeScore         float64   `json:"surge_score"`           // 総合盛り上がりスコア（0.0-1.0）
+	
+	// 詳細情報
+	CommentRate        float64   `json:"comment_rate"`          // コメント/秒
+	CommentGrowthRate  float64   `json:"comment_growth_rate"`  // 増加率
+	LastUpdated        time.Time `json:"last_updated"`
+}
+
+// 盛り上がり判定の重み設定
+type SurgeWeightSettings struct {
+	gorm.Model
+	UserID              uint    `json:"user_id" gorm:"index"`
+	CommentGrowthWeight float64 `json:"comment_growth_weight" gorm:"default:0.5"` // デフォルト: 50%
+	KeywordWeight       float64 `json:"keyword_weight" gorm:"default:0.3"`         // デフォルト: 30%
+	SuperChatWeight     float64 `json:"super_chat_weight" gorm:"default:0.2"`       // デフォルト: 20%
 }
