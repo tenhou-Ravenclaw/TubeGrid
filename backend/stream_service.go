@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"strings"
 	"regexp"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -168,7 +168,8 @@ func extractVideoIDFromURL(url string) string {
 
 // コメント増加量スコア計算
 func calculateCommentGrowthScore(current CommentSnapshot, history []CommentSnapshot) float64 {
-	if len(history) < 3 {
+	if len(history) < 1 {
+		log.Printf("  [コメント増加] 履歴なし → スコア: 0.0")
 		return 0.0
 	}
 
@@ -185,6 +186,7 @@ func calculateCommentGrowthScore(current CommentSnapshot, history []CommentSnaps
 	}
 
 	if recentSamples == 0 {
+		log.Printf("  [コメント増加] 5分以内のデータなし → スコア: 0.0")
 		return 0.0
 	}
 
@@ -195,6 +197,9 @@ func calculateCommentGrowthScore(current CommentSnapshot, history []CommentSnaps
 	if avgRecentComments > 0 {
 		growthRate = float64(current.CommentCount) / avgRecentComments
 	}
+
+	log.Printf("  [コメント増加] 現在: %d, 平均: %.1f, 増加率: %.2fx",
+		current.CommentCount, avgRecentComments, growthRate)
 
 	// スコア化（0.0-1.0）
 	score := 0.0
@@ -210,6 +215,7 @@ func calculateCommentGrowthScore(current CommentSnapshot, history []CommentSnaps
 		score = 0.1
 	}
 
+	log.Printf("  [コメント増加] → スコア: %.2f", score)
 	return score
 }
 
@@ -217,6 +223,9 @@ func calculateCommentGrowthScore(current CommentSnapshot, history []CommentSnaps
 func calculateKeywordScore(analysis CommentAnalysis) float64 {
 	// 含有率に基づいてスコア化
 	rate := analysis.SurgeKeywordRate
+
+	log.Printf("  [キーワード] キーワード率: %.2f%% (%d/%d)",
+		rate*100, analysis.SurgeKeywordCount, analysis.TotalComments)
 
 	score := 0.0
 	if rate > 0.5 {
@@ -231,6 +240,7 @@ func calculateKeywordScore(analysis CommentAnalysis) float64 {
 		score = 0.1
 	}
 
+	log.Printf("  [キーワード] → スコア: %.2f", score)
 	return score
 }
 
@@ -339,4 +349,3 @@ func calculateSurgeScore(
 	metrics.LastUpdated = time.Now()
 	return metrics
 }
-
