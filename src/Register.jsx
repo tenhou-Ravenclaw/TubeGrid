@@ -35,14 +35,18 @@ const Register = ({ onNavigate, onRegisterSuccess }) => {
 
     setLoading(true);
 
+    const requestData = { name, email, password };
+    console.log('Register request data:', requestData);
+
     try {
       const response = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify(requestData),
       });
 
       const data = await response.json();
+      console.log('Register response:', response.status, data);
 
       if (response.ok) {
         // 登録成功後、自動ログイン
@@ -63,6 +67,7 @@ const Register = ({ onNavigate, onRegisterSuccess }) => {
           }, 2000);
         }
       } else {
+        console.error('Register error response:', data);
         setError(data.error || '登録に失敗しました');
       }
     } catch (err) {
@@ -91,14 +96,14 @@ const Register = ({ onNavigate, onRegisterSuccess }) => {
           {/* アイコン */}
           <div className="register-icon">
             <div className="icon-wrapper">
-              <img 
-                src={iconImg} 
-                alt="OshiTracker Icon" 
+              <img
+                src={iconImg}
+                alt="OshiTracker Icon"
                 className="main-icon-img"
               />
-              <img 
+              <img
                 src={heartImg}
-                alt="heart" 
+                alt="heart"
                 className="floating-heart-img"
               />
             </div>
@@ -177,9 +182,9 @@ const Register = ({ onNavigate, onRegisterSuccess }) => {
 
             {/* エラーメッセージ */}
             {error && (
-              <div className="error-message" style={{ 
-                color: '#ff4444', 
-                fontSize: '14px', 
+              <div className="error-message" style={{
+                color: '#ff4444',
+                fontSize: '14px',
                 marginBottom: '10px',
                 textAlign: 'center'
               }}>
@@ -188,8 +193,8 @@ const Register = ({ onNavigate, onRegisterSuccess }) => {
             )}
 
             {/* 新規登録ボタン */}
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className={`register-submit-btn ${!agreedToTerms ? 'disabled' : ''}`}
               disabled={!agreedToTerms || loading}
             >
@@ -197,8 +202,8 @@ const Register = ({ onNavigate, onRegisterSuccess }) => {
             </button>
 
             {/* ログインへのリンク */}
-            <button 
-              type="button" 
+            <button
+              type="button"
               className="login-link"
               onClick={() => onNavigate('login')}
             >

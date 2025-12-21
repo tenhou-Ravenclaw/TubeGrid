@@ -7,12 +7,20 @@ const GoogleSignIn = ({ onNavigate, onSignInSuccess }) => {
 
   const handleGoogleSignIn = () => {
     setLoading(true);
-    
+
     // TODO: Googleログイン処理をここに実装
-    // 仮の処理として1秒後にログイン成功
+    // 仮の処理として1秒後にログイン成功（ダミーユーザーデータ）
     setTimeout(() => {
       setLoading(false);
-      onSignInSuccess();
+      // ダミーのトークンとユーザーデータを渡す（実際のGoogle認証実装時に置き換え）
+      const dummyToken = `google_token_${Date.now()}`;
+      const dummyUser = {
+        ID: 1,
+        id: 1,
+        name: 'Google User',
+        email: 'googleuser@example.com'
+      };
+      onSignInSuccess(dummyToken, dummyUser);
     }, 1000);
   };
 
@@ -20,9 +28,9 @@ const GoogleSignIn = ({ onNavigate, onSignInSuccess }) => {
     <div className="google-signin-container">
       <div className="google-signin-card">
         <div className="google-logo">
-          <img 
+          <img
             src={GoogleIconImg}
-            alt="Google" 
+            alt="Google"
             className="google-logo-img"
           />
         </div>
@@ -32,7 +40,7 @@ const GoogleSignIn = ({ onNavigate, onSignInSuccess }) => {
           Googleアカウントを使用してOshiTrackerにログインします
         </p>
 
-        <button 
+        <button
           className="google-signin-action-btn"
           onClick={handleGoogleSignIn}
           disabled={loading}
@@ -44,9 +52,9 @@ const GoogleSignIn = ({ onNavigate, onSignInSuccess }) => {
             </>
           ) : (
             <>
-              <img 
+              <img
                 src={GoogleIconImg}
-                alt="Google" 
+                alt="Google"
                 className="btn-google-icon"
               />
               <span>Googleアカウントでログイン</span>
@@ -54,7 +62,7 @@ const GoogleSignIn = ({ onNavigate, onSignInSuccess }) => {
           )}
         </button>
 
-        <button 
+        <button
           className="back-btn"
           onClick={() => onNavigate('auth')}
         >
