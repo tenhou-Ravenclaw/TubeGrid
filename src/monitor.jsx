@@ -4,15 +4,25 @@ import Draggable from "react-draggable";
 import subVolumeImg from "./assets/subVolume-bar.png";
 
 const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, label, onPositionChange, volume: propVolume = 50, surgeScore = 0 }) => {
+  const createPosition = (xPos, yPos) => ({
+    x: xPos,
+    y: yPos,
+    rotate: rotate || 0,
+    width: 0,
+    height: 0,
+    zIndex: isOshi ? 650 : 600, // サブがメイン(500)より前に出るように上げる
+  });
+
   const nodeRef = useRef(null);
   const handleRef = useRef(null);
   const [videoId, setVideoId] = useState(vid);
-  const [position, setPosition] = useState({ x, y });
+  const [position, setPosition] = useState(() => createPosition(x, y));
+  const lastValidPositionRef = useRef(createPosition(x, y));
   const [volume, setVolume] = useState(propVolume);
   const playerRef = useRef(null);
   const [volumePosition, setVolumePosition] = useState({ x: 50, y: 0 });
   const [isPlaying, setIsPlaying] = useState(true); // 再生状態を追跡
-  
+
   // クリック/ホールド検出用
   const holdTimerRef = useRef(null);
   const isDraggingRef = useRef(false);
@@ -20,9 +30,13 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
   const mouseDownTimeRef = useRef(0);
 
   useEffect(() => { setVideoId(vid); }, [vid]);
-  useEffect(() => { setPosition({ x, y }); }, [x, y]);
+  useEffect(() => {
+    const nextPosition = createPosition(x, y);
+    setPosition(nextPosition);
+    lastValidPositionRef.current = nextPosition;
+  }, [x, y, rotate, isOshi]);
   useEffect(() => { setVolume(propVolume); }, [propVolume]);
-  
+
   // YouTube Player初期化
   useEffect(() => {
     if (!window.YT || !window.YT.Player || !videoId) return;
@@ -100,7 +114,7 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
       e.stopPropagation();
     }
     if (!playerRef.current) return;
-    
+
     try {
       const state = playerRef.current.getPlayerState();
       // 1: 再生中, 2: 一時停止中, 3: バッファリング中, 5: 動画終了
@@ -122,14 +136,14 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
     if (e.target.closest('.volume-overlay') || e.target.closest('.volume-handle')) {
       return;
     }
-    
+
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:93',message:'handleMouseDown called',data:{monitorId:id,timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'monitor.jsx:93', message: 'handleMouseDown called', data: { monitorId: id, timestamp: Date.now() }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'E' }) }).catch(() => { });
     // #endregion
     mouseDownTimeRef.current = Date.now();
     isHoldingRef.current = false;
     isDraggingRef.current = false;
-    
+
     // 300ms後にホールドと判定
     holdTimerRef.current = setTimeout(() => {
       isHoldingRef.current = true;
@@ -142,22 +156,22 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
     if (e.target.closest('.volume-overlay') || e.target.closest('.volume-handle')) {
       return;
     }
-    
+
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current);
       holdTimerRef.current = null;
     }
-    
+
     const holdDuration = Date.now() - mouseDownTimeRef.current;
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:110',message:'handleMouseUp called',data:{monitorId:id,holdDuration,isDragging:isDraggingRef.current,isHolding:isHoldingRef.current,willToggle:!isDraggingRef.current&&!isHoldingRef.current&&holdDuration<300},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'monitor.jsx:110', message: 'handleMouseUp called', data: { monitorId: id, holdDuration, isDragging: isDraggingRef.current, isHolding: isHoldingRef.current, willToggle: !isDraggingRef.current && !isHoldingRef.current && holdDuration < 300 }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'E' }) }).catch(() => { });
     // #endregion
-    
+
     // ドラッグ中でなく、短いクリック（300ms未満）の場合は再生・一時停止
     if (!isDraggingRef.current && !isHoldingRef.current && holdDuration < 300) {
       togglePlayPause();
     }
-    
+
     isHoldingRef.current = false;
   };
 
@@ -168,10 +182,22 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
     return '';
   };
 
+  const isWithinViewport = () => {
+    if (!nodeRef.current) return true;
+    const rect = nodeRef.current.getBoundingClientRect();
+    const margin = 8;
+    return (
+      rect.left >= margin &&
+      rect.top >= margin &&
+      rect.right <= window.innerWidth - margin &&
+      rect.bottom <= window.innerHeight - margin
+    );
+  };
+
   // ドラッグ開始時の処理
   const handleDragStart = () => {
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:132',message:'handleDragStart called',data:{monitorId:id,isDraggingBefore:isDraggingRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'monitor.jsx:132', message: 'handleDragStart called', data: { monitorId: id, isDraggingBefore: isDraggingRef.current }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
     // #endregion
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current);
@@ -182,34 +208,33 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
 
   const handleDragStop = (e, data) => {
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:140',message:'handleDragStop called',data:{monitorId:id,isDragging:isDraggingRef.current,position:{x:data.x,y:data.y},currentPosition:{x:position.x,y:position.y}},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'monitor.jsx:140', message: 'handleDragStop called', data: { monitorId: id, isDragging: isDraggingRef.current, position: { x: data.x, y: data.y }, currentPosition: { x: position.x, y: position.y } }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'post-fix', hypothesisId: 'A' }) }).catch(() => { });
     // #endregion
-    const newPosition = {
-      x: data.x,
-      y: data.y,
-      rotate: rotate || 0,
-      width: 0,
-      height: 0,
-      zIndex: isOshi ? 150 : 100
-    };
+    const newPosition = createPosition(data.x, data.y);
     const positionChanged = data.x !== position.x || data.y !== position.y;
+    const withinViewport = isWithinViewport();
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:149',message:'Before onPositionChange',data:{monitorId:id,isDragging:isDraggingRef.current,positionChanged},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'monitor.jsx:149', message: 'Before onPositionChange', data: { monitorId: id, isDragging: isDraggingRef.current, positionChanged }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'post-fix', hypothesisId: 'B' }) }).catch(() => { });
     // #endregion
-    setPosition(newPosition);
-    // 実際にドラッグが発生し、位置が変わった場合のみ位置を保存
-    if (onPositionChange && isDraggingRef.current && positionChanged) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:153',message:'Calling onPositionChange',data:{monitorId:id,newPosition},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      onPositionChange(newPosition);
+    if (withinViewport) {
+      setPosition(newPosition);
+      lastValidPositionRef.current = newPosition;
+      // 実際にドラッグが発生し、位置が変わった場合のみ位置を保存
+      if (onPositionChange && isDraggingRef.current && positionChanged) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'monitor.jsx:153', message: 'Calling onPositionChange', data: { monitorId: id, newPosition }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'post-fix', hypothesisId: 'A' }) }).catch(() => { });
+        // #endregion
+        onPositionChange(newPosition);
+      }
+    } else {
+      setPosition(lastValidPositionRef.current);
     }
     isDraggingRef.current = false;
   };
 
   return (
-    <Draggable 
-      nodeRef={nodeRef} 
+    <Draggable
+      nodeRef={nodeRef}
       onStop={handleDragStop}
       onStart={handleDragStart}
       position={position}
@@ -218,17 +243,17 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
       <div
         ref={nodeRef}
         className={`monitor-draggable-wrapper ${isOshi ? "oshi-focus" : ""} ${getSurgeClass()}`}
-        style={{ position: "absolute", left: `${position.x}px`, top: `${position.y}px`, zIndex: isOshi ? 150 : 100 }}
+        style={{ position: "absolute", left: `${position.x}px`, top: `${position.y}px`, zIndex: position.zIndex }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onDoubleClick={onSwap}
       >
-        <div 
-          className="monitor-group" 
-          style={{ 
-            transform: `rotate(${rotate}deg)`, 
+        <div
+          className="monitor-group"
+          style={{
+            transform: `rotate(${rotate}deg)`,
             transformOrigin: "center center",
-            width: "100%" 
+            width: "100%"
           }}
         >
           {onDelete && (
@@ -236,11 +261,11 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
               className="monitor-delete-btn"
               onClick={(e) => {
                 // #region agent log
-                fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:202',message:'Delete button clicked',data:{monitorId:id,hasOnDelete:!!onDelete},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'monitor.jsx:202', message: 'Delete button clicked', data: { monitorId: id, hasOnDelete: !!onDelete }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
                 // #endregion
                 e.stopPropagation();
                 // #region agent log
-                fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'monitor.jsx:205',message:'Calling onDelete',data:{monitorId:id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'monitor.jsx:205', message: 'Calling onDelete', data: { monitorId: id }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
                 // #endregion
                 onDelete();
               }}
@@ -250,9 +275,9 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
             </button>
           )}
           {surgeScore > 0.4 && (
-            <div className="surge-indicator" style={{ 
-              position: 'absolute', 
-              top: '5px', 
+            <div className="surge-indicator" style={{
+              position: 'absolute',
+              top: '5px',
               left: '35px',
               background: 'rgba(255, 0, 0, 0.8)',
               color: 'white',
