@@ -41,7 +41,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
 
   // ルームレイアウト管理
   const [roomLayouts, setRoomLayouts] = useState([]);
-  const [layoutLoaded, setLayoutLoaded] = useState(false);
+  const [, setLayoutLoaded] = useState(false);
 
   // 音量プリセット管理
   const [volumePresets, setVolumePresets] = useState([]);
