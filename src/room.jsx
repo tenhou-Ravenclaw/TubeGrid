@@ -308,9 +308,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
         console.log(`   - コメント増加: ${((stream.comment_growth_score || 0) * 100).toFixed(1)}%`);
         console.log(`   - 単語含有率: ${((stream.keyword_score || 0) * 100).toFixed(1)}%`);
         console.log(`   - スーパーチャット: ${((stream.super_chat_score || 0) * 100).toFixed(1)}%`);
-        if (stream.comment_rate) {
-          console.log(`   - コメント速度: ${stream.comment_rate.toFixed(2)} コメント/秒`);
-        }
+        console.log(`   - コメント速度: ${(stream.comment_rate || 0).toFixed(2)} コメント/秒`);
       });
 
     console.log('='.repeat(80));
