@@ -938,20 +938,6 @@ const Room = ({ onLogout, userId: propUserId }) => {
           fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:777', message: 'Setting current session', data: { streamCount: streams.length, streamIds, deletedStreamId: streamId, isDeleted: !streamIds.includes(streamId), rawSessionData: JSON.stringify(sessionData).substring(0, 1000) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'F' }) }).catch(() => { });
           // #endregion
 
-          // 削除されたストリームIDをフィルタリング（バックエンドの問題を回避）
-          if (streamIds.includes(streamId)) {
-            // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:787', message: 'Filtering deleted stream', data: { deletedStreamId: streamId, streamIdsBefore: streamIds }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'J' }) }).catch(() => { });
-            // #endregion
-            // 削除されたストリームを除外
-            const filteredStreams = streams.filter(s => {
-              const sid = s.id || s.ID;
-              return sid !== streamId;
-            });
-            sessionData.streams = filteredStreams;
-            sessionData.Streams = filteredStreams;
-          }
-
           // 削除されたモニターのレイアウトも削除
           const deletedMonitorId = type === "sub" ? `sub-${streamId}` : `sm-${streamId}`;
           try {
