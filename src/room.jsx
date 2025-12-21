@@ -507,9 +507,6 @@ const Room = ({ onLogout, userId: propUserId }) => {
   // セッションストリームをモニター用データ構造にマッピング
   const mapSessionStreamsToMonitors = (session) => {
     const streams = session?.streams || session?.Streams || [];
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'room.jsx:377', message: 'mapSessionStreamsToMonitors called', data: { hasSession: !!session, streamCount: streams.length, streamIds: streams.map(s => s.id || s.ID) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'I' }) }).catch(() => { });
-    // #endregion
     if (!session || streams.length === 0) {
       return {
         mainVid: null,
