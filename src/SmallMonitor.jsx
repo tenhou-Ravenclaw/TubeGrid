@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useState} from "react";
+import React, { useRef, useEffect, useState } from "react";
 import Draggable from "react-draggable";
 import subVolumeImg from "./assets/subVolume-bar.png";
 
@@ -35,7 +35,7 @@ const SmallMonitor = ({
   const playerRef = useRef(null);
   const [volumePosition, setVolumePosition] = useState({ x: 40, y: 0 });
   const [isPlaying, setIsPlaying] = useState(true); // 再生状態を追跡
-  
+
   // クリック/ホールド検出用
   const holdTimerRef = useRef(null);
   const isDraggingRef = useRef(false);
@@ -131,7 +131,7 @@ const SmallMonitor = ({
       e.stopPropagation();
     }
     if (!playerRef.current) return;
-    
+
     try {
       const state = playerRef.current.getPlayerState();
       // 1: 再生中, 2: 一時停止中, 3: バッファリング中, 5: 動画終了
@@ -153,11 +153,11 @@ const SmallMonitor = ({
     if (e.target.closest('.volume-overlay') || e.target.closest('.volume-handle')) {
       return;
     }
-    
+
     mouseDownTimeRef.current = Date.now();
     isHoldingRef.current = false;
     isDraggingRef.current = false;
-    
+
     // 300ms後にホールドと判定
     holdTimerRef.current = setTimeout(() => {
       isHoldingRef.current = true;
@@ -170,19 +170,19 @@ const SmallMonitor = ({
     if (e.target.closest('.volume-overlay') || e.target.closest('.volume-handle')) {
       return;
     }
-    
+
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current);
       holdTimerRef.current = null;
     }
-    
+
     const holdDuration = Date.now() - mouseDownTimeRef.current;
-    
+
     // ドラッグ中でなく、短いクリック（300ms未満）の場合は再生・一時停止
     if (!isDraggingRef.current && !isHoldingRef.current && holdDuration < 300) {
       togglePlayPause();
     }
-    
+
     isHoldingRef.current = false;
   };
 
@@ -208,7 +208,7 @@ const SmallMonitor = ({
   // ドラッグ開始時の処理
   const handleDragStart = () => {
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SmallMonitor.jsx:149',message:'handleDragStart called',data:{monitorId:id,isDraggingBefore:isDraggingRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'SmallMonitor.jsx:149', message: 'handleDragStart called', data: { monitorId: id, isDraggingBefore: isDraggingRef.current }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
     // #endregion
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current);
@@ -219,13 +219,13 @@ const SmallMonitor = ({
 
   const handleDragStop = (e, data) => {
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SmallMonitor.jsx:157',message:'handleDragStop called',data:{monitorId:id,isDragging:isDraggingRef.current,position:{x:data.x,y:data.y},currentPosition:{x:position.x,y:position.y}},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'SmallMonitor.jsx:157', message: 'handleDragStop called', data: { monitorId: id, isDragging: isDraggingRef.current, position: { x: data.x, y: data.y }, currentPosition: { x: position.x, y: position.y } }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'post-fix', hypothesisId: 'A' }) }).catch(() => { });
     // #endregion
     const newPosition = createPosition(data.x, data.y);
     const positionChanged = data.x !== position.x || data.y !== position.y;
     const withinViewport = isWithinViewport();
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SmallMonitor.jsx:166',message:'Before onPositionChange',data:{monitorId:id,isDragging:isDraggingRef.current,positionChanged},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'SmallMonitor.jsx:166', message: 'Before onPositionChange', data: { monitorId: id, isDragging: isDraggingRef.current, positionChanged }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'post-fix', hypothesisId: 'B' }) }).catch(() => { });
     // #endregion
     if (withinViewport) {
       setPosition(newPosition);
@@ -233,7 +233,7 @@ const SmallMonitor = ({
       // 実際にドラッグが発生し、位置が変わった場合のみ位置を保存
       if (onPositionChange && isDraggingRef.current && positionChanged) {
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SmallMonitor.jsx:170',message:'Calling onPositionChange',data:{monitorId:id,newPosition},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'SmallMonitor.jsx:170', message: 'Calling onPositionChange', data: { monitorId: id, newPosition }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'post-fix', hypothesisId: 'A' }) }).catch(() => { });
         // #endregion
         onPositionChange(newPosition);
       }
@@ -251,8 +251,8 @@ const SmallMonitor = ({
   };
 
   return (
-    <Draggable 
-      nodeRef={nodeRef} 
+    <Draggable
+      nodeRef={nodeRef}
       onStop={handleDragStop}
       onStart={handleDragStart}
       position={position}
@@ -260,9 +260,8 @@ const SmallMonitor = ({
     >
       <div
         ref={nodeRef}
-        className={`monitor-draggable-wrapper small-monitor ${
-          isOshi ? "oshi-focus" : ""
-        } ${getSurgeClass()}`}
+        className={`monitor-draggable-wrapper small-monitor ${isOshi ? "oshi-focus" : ""
+          } ${getSurgeClass()}`}
         style={{
           position: "absolute",
           left: `${position.x}px`,
@@ -289,11 +288,11 @@ const SmallMonitor = ({
               className="monitor-delete-btn small"
               onClick={(e) => {
                 // #region agent log
-                fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SmallMonitor.jsx:231',message:'Delete button clicked',data:{monitorId:id,hasOnDelete:!!onDelete},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'SmallMonitor.jsx:231', message: 'Delete button clicked', data: { monitorId: id, hasOnDelete: !!onDelete }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
                 // #endregion
                 e.stopPropagation();
                 // #region agent log
-                fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SmallMonitor.jsx:234',message:'Calling onDelete',data:{monitorId:id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'SmallMonitor.jsx:234', message: 'Calling onDelete', data: { monitorId: id }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
                 // #endregion
                 onDelete();
               }}
@@ -303,9 +302,9 @@ const SmallMonitor = ({
             </button>
           )}
           {surgeScore > 0.4 && (
-            <div className="surge-indicator small" style={{ 
-              position: 'absolute', 
-              top: '3px', 
+            <div className="surge-indicator small" style={{
+              position: 'absolute',
+              top: '3px',
               left: '30px',
               background: 'rgba(255, 0, 0, 0.8)',
               color: 'white',
@@ -360,7 +359,7 @@ const SmallMonitor = ({
                 src={subVolumeImg}
                 alt="volume-bar"
                 className="volume-bar-img"
-                style={{width: "100%"}}
+                style={{ width: "100%" }}
               />
               <Draggable
                 nodeRef={handleRef}
