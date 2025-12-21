@@ -177,8 +177,8 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
 
   // 盛り上がりスコアに基づいてクラス名を決定
   const getSurgeClass = () => {
-    if (surgeScore > 0.7) return 'surge-high';
-    if (surgeScore > 0.4) return 'surge-medium';
+    if (surgeScore > 0.5) return 'surge-high';
+    if (surgeScore > 0.15) return 'surge-medium';
     return '';
   };
 

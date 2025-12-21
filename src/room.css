@@ -801,3 +801,259 @@
   color: #fff;
   box-shadow: 0 2px 8px rgba(255, 105, 180, 0.4);
 }
+
+/* --- 超絶盛り上がりエフェクト (Surge High) --- */
+
+.monitor-draggable-wrapper.surge-high {
+  z-index: 999 !important; /* 最前面へ */
+  position: relative;
+}
+
+.monitor-draggable-wrapper.surge-high .monitor-group {
+  /* ピンクと白の多重グロー */
+  box-shadow: 
+    0 0 20px 5px rgba(255, 255, 255, 0.9),
+    0 0 40px 10px rgba(255, 105, 180, 0.8),
+    0 0 60px 15px rgba(255, 20, 147, 0.6),
+    0 0 80px 20px rgba(255, 182, 193, 0.5);
+  
+  border: 4px solid #fff;
+  border-radius: 20px;
+  
+  /* ふわふわ拡大縮小 */
+  animation: kawaii-pulse 1s ease-in-out infinite;
+}
+
+/* キラキラ粒子エフェクト - 4つの星 */
+.monitor-draggable-wrapper.surge-high::before,
+.monitor-draggable-wrapper.surge-high::after {
+  content: "✨";
+  position: absolute;
+  font-size: 30px;
+  pointer-events: none;
+  z-index: 1001;
+  animation: sparkle-float 2s ease-in-out infinite;
+}
+
+.monitor-draggable-wrapper.surge-high::before {
+  top: -30px;
+  left: 20%;
+  animation-delay: 0s;
+}
+
+.monitor-draggable-wrapper.surge-high::after {
+  bottom: -30px;
+  right: 20%;
+  animation-delay: 1s;
+}
+
+/* 追加のキラキラ（擬似要素では2つまでなので、別の方法で表現） */
+.monitor-draggable-wrapper.surge-high .monitor-group::before,
+.monitor-draggable-wrapper.surge-high .monitor-group::after {
+  content: "✨";
+  position: absolute;
+  font-size: 25px;
+  pointer-events: none;
+  z-index: 1001;
+  animation: sparkle-float 2s ease-in-out infinite;
+}
+
+.monitor-draggable-wrapper.surge-high .monitor-group::before {
+  top: 10%;
+  right: -35px;
+  animation-delay: 0.5s;
+}
+
+.monitor-draggable-wrapper.surge-high .monitor-group::after {
+  bottom: 10%;
+  left: -35px;
+  animation-delay: 1.5s;
+}
+
+/* --- 超絶盛り上がりエフェクト (Surge High) --- */
+
+.monitor-draggable-wrapper.surge-high {
+  z-index: 999 !important;
+  position: relative;
+}
+
+.monitor-draggable-wrapper.surge-high .monitor-group {
+  /* 黄色の太い枠線 */
+  border: 6px solid #FFD700;
+  border-radius: 25px;
+  
+  /* 黄色のグロー */
+  box-shadow: 
+    0 0 20px 5px rgba(255, 215, 0, 0.8),
+    0 0 40px 10px rgba(255, 215, 0, 0.5),
+    inset 0 0 30px rgba(255, 215, 0, 0.2);
+  
+  /* ふわふわアニメーション */
+  animation: golden-pulse 1.2s ease-in-out infinite;
+}
+
+/* 星のエフェクト - 右上の大きな星グループ */
+.monitor-draggable-wrapper.surge-high::before {
+  content: "⭐";
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  font-size: 50px;
+  z-index: 1001;
+  pointer-events: none;
+  animation: star-twinkle-1 1.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.8));
+}
+
+.monitor-draggable-wrapper.surge-high::after {
+  content: "⭐";
+  position: absolute;
+  top: -20px;
+  right: 10px;
+  font-size: 35px;
+  z-index: 1001;
+  pointer-events: none;
+  animation: star-twinkle-2 1.5s ease-in-out infinite 0.3s;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
+}
+
+/* 左下の星グループ */
+.monitor-draggable-wrapper.surge-high .monitor-group::before {
+  content: "⭐";
+  position: absolute;
+  bottom: -35px;
+  left: -35px;
+  font-size: 45px;
+  z-index: 1001;
+  pointer-events: none;
+  animation: star-twinkle-1 1.5s ease-in-out infinite 0.5s;
+  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.8));
+}
+
+.monitor-draggable-wrapper.surge-high .monitor-group::after {
+  content: "⭐";
+  position: absolute;
+  bottom: -10px;
+  left: 20px;
+  font-size: 30px;
+  z-index: 1001;
+  pointer-events: none;
+  animation: star-twinkle-2 1.5s ease-in-out infinite 0.8s;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
+}
+
+/* --- 通常の盛り上がり (Surge Medium) --- */
+
+.monitor-draggable-wrapper.surge-medium {
+  position: relative;
+}
+
+.monitor-draggable-wrapper.surge-medium .monitor-group {
+  /* 薄い黄色の枠線 */
+  border: 4px solid rgba(255, 215, 0, 0.7);
+  border-radius: 20px;
+  
+  /* 控えめな黄色グロー */
+  box-shadow: 
+    0 0 15px 3px rgba(255, 215, 0, 0.5),
+    0 0 30px 8px rgba(255, 215, 0, 0.3);
+  
+  animation: gentle-golden-pulse 1.8s ease-in-out infinite;
+}
+
+/* 1つの星 */
+.monitor-draggable-wrapper.surge-medium::before {
+  content: "⭐";
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  font-size: 35px;
+  z-index: 1001;
+  pointer-events: none;
+  animation: star-twinkle-gentle 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
+}
+
+/* --- アニメーション定義 --- */
+
+/* 黄金の脈打ち（強） */
+@keyframes golden-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 
+      0 0 20px 5px rgba(255, 215, 0, 0.8),
+      0 0 40px 10px rgba(255, 215, 0, 0.5),
+      inset 0 0 30px rgba(255, 215, 0, 0.2);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 
+      0 0 30px 8px rgba(255, 215, 0, 1),
+      0 0 50px 15px rgba(255, 215, 0, 0.7),
+      inset 0 0 40px rgba(255, 215, 0, 0.3);
+  }
+}
+
+/* 優しい黄金の脈打ち */
+@keyframes gentle-golden-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 
+      0 0 15px 3px rgba(255, 215, 0, 0.5),
+      0 0 30px 8px rgba(255, 215, 0, 0.3);
+  }
+  50% {
+    transform: scale(1.01);
+    box-shadow: 
+      0 0 20px 5px rgba(255, 215, 0, 0.7),
+      0 0 35px 10px rgba(255, 215, 0, 0.4);
+  }
+}
+
+/* 星のキラキラ（パターン1） */
+@keyframes star-twinkle-1 {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(1.2) rotate(20deg);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(0.9) rotate(0deg);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(1.1) rotate(-20deg);
+    opacity: 0.9;
+  }
+}
+
+/* 星のキラキラ（パターン2） */
+@keyframes star-twinkle-2 {
+  0%, 100% {
+    transform: scale(0.8) rotate(0deg);
+    opacity: 0.9;
+  }
+  33% {
+    transform: scale(1.1) rotate(15deg);
+    opacity: 1;
+  }
+  66% {
+    transform: scale(0.9) rotate(-15deg);
+    opacity: 0.85;
+  }
+}
+
+/* 優しい星のキラキラ */
+@keyframes star-twinkle-gentle {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.15) rotate(10deg);
+    opacity: 1;
+  }
+}
