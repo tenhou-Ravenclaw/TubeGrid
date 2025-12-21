@@ -48,7 +48,6 @@ const Room = ({ onLogout, userId: propUserId }) => {
 
   // 盛り上がり配信管理
   const [surgeStreams, setSurgeStreams] = useState({}); // {videoId: surgeScore}
-  const [commentMetrics, setCommentMetrics] = useState({}); // {videoId: metrics}
 
   // YouTube Player管理
   const [ytReady, setYtReady] = useState(false);
