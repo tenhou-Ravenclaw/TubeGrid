@@ -54,7 +54,6 @@ const Room = ({ onLogout, userId: propUserId }) => {
   const [ytReady, setYtReady] = useState(false);
   const mainPlayerRef = useRef(null);
   const [mainVolume, setMainVolume] = useState(50);
-  const playersRef = useRef({}); // {monitorId: YT.Player}
 
   // 画面サイズに応じたスケール管理
   const [worldScale, setWorldScale] = useState(1);
