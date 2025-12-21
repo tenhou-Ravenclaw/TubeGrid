@@ -324,6 +324,12 @@ func calculateSurgeScore(
 		metrics.SurgeScore = 1.0
 	}
 
+	// 全体の見え方を持ち上げるためゲインを適用（上限1.0でクリップ）
+	metrics.SurgeScore *= 1.5
+	if metrics.SurgeScore > 1.0 {
+		metrics.SurgeScore = 1.0
+	}
+
 	// コメント速度の計算
 	if len(history) > 0 {
 		oldest := history[0]
