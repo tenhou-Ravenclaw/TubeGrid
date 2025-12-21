@@ -41,7 +41,7 @@ type YouTubeSearchResponse struct {
 			ChannelID    string `json:"channelId"`
 			ChannelTitle string `json:"channelTitle"`
 			PublishedAt  string `json:"publishedAt"`
-			Thumbnails struct {
+			Thumbnails   struct {
 				Default struct {
 					URL string `json:"url"`
 				} `json:"default"`
@@ -195,12 +195,12 @@ type YouTubeVideoInfoResponse struct {
 	Items []struct {
 		ID      string `json:"id"`
 		Snippet struct {
-			Title       string `json:"title"`
-			Description string `json:"description"`
-			PublishedAt string `json:"publishedAt"`
-			ChannelID   string `json:"channelId"`
+			Title        string `json:"title"`
+			Description  string `json:"description"`
+			PublishedAt  string `json:"publishedAt"`
+			ChannelID    string `json:"channelId"`
 			ChannelTitle string `json:"channelTitle"`
-			Thumbnails struct {
+			Thumbnails   struct {
 				Default struct {
 					URL string `json:"url"`
 				} `json:"default"`
@@ -269,10 +269,10 @@ func getVideoInfo(videoID string) (*VideoInfo, error) {
 
 // チャンネル情報
 type ChannelInfo struct {
-	ChannelID    string `json:"channel_id"`
-	ChannelName  string `json:"channel_name"`
-	ThumbnailURL string `json:"thumbnail_url"`
-	Description  string `json:"description"`
+	ChannelID       string `json:"channel_id"`
+	ChannelName     string `json:"channel_name"`
+	ThumbnailURL    string `json:"thumbnail_url"`
+	Description     string `json:"description"`
 	SubscriberCount string `json:"subscriber_count"`
 }
 
@@ -283,7 +283,7 @@ type YouTubeChannelInfoResponse struct {
 		Snippet struct {
 			Title       string `json:"title"`
 			Description string `json:"description"`
-			Thumbnails struct {
+			Thumbnails  struct {
 				Default struct {
 					URL string `json:"url"`
 				} `json:"default"`
@@ -339,10 +339,10 @@ func getChannelInfo(channelID string) (*ChannelInfo, error) {
 	log.Printf("成功: チャンネル情報取得完了 (ChannelID: %s, Name: %s)", channelID, item.Snippet.Title)
 
 	return &ChannelInfo{
-		ChannelID:     channelID,
-		ChannelName:   item.Snippet.Title,
-		ThumbnailURL:  item.Snippet.Thumbnails.Default.URL,
-		Description:   item.Snippet.Description,
+		ChannelID:       channelID,
+		ChannelName:     item.Snippet.Title,
+		ThumbnailURL:    item.Snippet.Thumbnails.Default.URL,
+		Description:     item.Snippet.Description,
 		SubscriberCount: item.Statistics.SubscriberCount,
 	}, nil
 }
@@ -367,7 +367,7 @@ type YouTubeCommentResponse struct {
 					TextDisplay string `json:"textDisplay"`
 					AuthorName  string `json:"authorDisplayName"`
 					PublishedAt string `json:"publishedAt"`
-					LikeCount    int    `json:"likeCount"`
+					LikeCount   int    `json:"likeCount"`
 				} `json:"snippet"`
 			} `json:"topLevelComment"`
 		} `json:"snippet"`
@@ -375,6 +375,66 @@ type YouTubeCommentResponse struct {
 	PageInfo struct {
 		TotalResults int `json:"totalResults"`
 	} `json:"pageInfo"`
+}
+
+// YouTubeライブ配信情報
+type YouTubeBroadcast struct {
+	Kind    string `json:"kind"`
+	Etag    string `json:"etag"`
+	ID      string `json:"id"`
+	Snippet struct {
+		PublishedAt  string `json:"publishedAt"`
+		Title        string `json:"title"`
+		Description  string `json:"description"`
+		ChannelID    string `json:"channelId"`
+		ChannelTitle string `json:"channelTitle"`
+	} `json:"snippet"`
+	LiveStreamingDetails struct {
+		ActualStartTime    string `json:"actualStartTime"`
+		ActualEndTime      string `json:"actualEndTime"`
+		ScheduledStartTime string `json:"scheduledStartTime"`
+		ConcurrentViewers  string `json:"concurrentViewers"`
+		ActiveLiveChatID   string `json:"activeLiveChatId"` // ← これが正しいフィールド名
+	} `json:"liveStreamingDetails"`
+	Status struct {
+		UploadStatus    string   `json:"uploadStatus"`
+		PrivacyStatus   string   `json:"privacyStatus"`
+		LifecycleStatus string   `json:"lifecycleStatus"`
+		PublishAt       string   `json:"publishAt"`
+		Failures        []string `json:"failures"`
+	} `json:"status"`
+}
+
+// YouTubeビデオリスト（配信情報付き）
+type YouTubeVideoListResponse struct {
+	Items []YouTubeBroadcast `json:"items"`
+}
+
+// YouTube Live Chat Message Response
+type YouTubeLiveChatResponse struct {
+	NextPageToken         string `json:"nextPageToken"`
+	PollingIntervalMillis int    `json:"pollingIntervalMillis"`
+	PageInfo              struct {
+		TotalResults   int `json:"totalResults"`
+		ResultsPerPage int `json:"resultsPerPage"`
+	} `json:"pageInfo"`
+	Items []struct {
+		ID      string `json:"id"`
+		Snippet struct {
+			Type              string `json:"type"` // textMessageEvent
+			CreatedAt         string `json:"createdAt"`
+			DisplayMessage    string `json:"displayMessage"`
+			HasDisplayContent bool   `json:"hasDisplayContent"`
+			AuthorChannelId   string `json:"authorChannelId"`
+		} `json:"snippet"`
+		AuthorDetails struct {
+			ChannelId       string `json:"channelId"`
+			DisplayName     string `json:"displayName"`
+			ProfileImage    string `json:"profileImageUrl"`
+			IsChatModerator bool   `json:"isChatModerator"`
+			IsChatOwner     bool   `json:"isChatOwner"`
+		} `json:"authorDetails"`
+	} `json:"items"`
 }
 
 // YouTubeスーパーチャット取得レスポンス構造体
@@ -525,6 +585,104 @@ func getYouTubeComments(videoID string, maxResults int) (*CommentAnalysis, error
 	return analysis, nil
 }
 
+// YouTube Live Chat メッセージ取得（ポーリング対応版）
+func getYouTubeLiveChatMessages(liveChatID string, pageToken string, maxResults int) (*CommentAnalysis, string, int, error) {
+	apiKey, err := getYouTubeAPIKey()
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	// Live Chat Messages API: メッセージをポーリング取得
+	chatURL := fmt.Sprintf(
+		"https://www.googleapis.com/youtube/v3/liveChat/messages?liveChatId=%s&part=snippet,authorDetails&maxResults=%d&key=%s",
+		liveChatID, maxResults, apiKey,
+	)
+
+	if pageToken != "" {
+		chatURL += "&pageToken=" + url.QueryEscape(pageToken)
+	}
+
+	resp, err := httpClient.Get(chatURL)
+	if err != nil {
+		log.Printf("エラー: ライブチャット取得失敗 (LiveChatID: %s): %v", liveChatID, err)
+		return nil, "", 0, fmt.Errorf("ライブチャット取得失敗: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == 403 {
+			log.Printf("情報: ライブチャットが無効化されています (LiveChatID: %s)", liveChatID)
+			return &CommentAnalysis{
+				TotalComments:     0,
+				SurgeKeywordCount: 0,
+				SurgeKeywordRate:  0.0,
+				UniqueUsers:       0,
+			}, "", 0, nil
+		}
+		log.Printf("エラー: ライブチャットAPIエラー (LiveChatID: %s, ステータス: %d): %s", liveChatID, resp.StatusCode, string(body))
+		return nil, "", 0, fmt.Errorf("ライブチャットAPIエラー: %d", resp.StatusCode)
+	}
+
+	var chatData YouTubeLiveChatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&chatData); err != nil {
+		log.Printf("エラー: ライブチャット解析失敗 (LiveChatID: %s): %v", liveChatID, err)
+		return nil, "", 0, fmt.Errorf("ライブチャット解析失敗: %v", err)
+	}
+
+	analysis := &CommentAnalysis{
+		TotalComments: len(chatData.Items), // ライブチャットでは取得件数を使用
+	}
+
+	// テキストメッセージのみを対象
+	uniqueUsers := make(map[string]bool)
+	surgeKeywordCount := 0
+	textMessageCount := 0
+
+	// 30秒以内の新鮮なメッセージのみカウント
+	now := time.Now()
+	recentThreshold := now.Add(-30 * time.Second)
+
+	for _, item := range chatData.Items {
+		// テキストメッセージのみ処理
+		if item.Snippet.Type != "textMessageEvent" || !item.Snippet.HasDisplayContent {
+			continue
+		}
+
+		// メッセージの投稿時刻を解析
+		createdAt, err := time.Parse(time.RFC3339, item.Snippet.CreatedAt)
+		if err == nil && createdAt.Before(recentThreshold) {
+			// 30秒以上前のメッセージはスキップ
+			continue
+		}
+
+		text := item.Snippet.DisplayMessage
+		author := item.AuthorDetails.DisplayName
+
+		textMessageCount++
+
+		// ユニークユーザー数
+		uniqueUsers[author] = true
+
+		// 盛り上がり単語含有チェック
+		if detectSurgeKeywords(text) {
+			surgeKeywordCount++
+		}
+	}
+
+	analysis.TotalComments = textMessageCount // 30秒以内のコメント数に更新
+	analysis.UniqueUsers = len(uniqueUsers)
+	analysis.SurgeKeywordCount = surgeKeywordCount
+	if textMessageCount > 0 {
+		analysis.SurgeKeywordRate = float64(surgeKeywordCount) / float64(textMessageCount)
+	}
+
+	log.Printf("  [ライブチャット] 全取得: %d件, 30秒以内: %d件, キーワード: %d件",
+		len(chatData.Items), textMessageCount, surgeKeywordCount)
+
+	return analysis, chatData.NextPageToken, chatData.PollingIntervalMillis, nil
+}
+
 // YouTubeスーパーチャット取得
 func getYouTubeSuperChats(videoID string, maxResults int) (float64, int, error) {
 	apiKey, err := getYouTubeAPIKey()
@@ -571,3 +729,59 @@ func getYouTubeSuperChats(videoID string, maxResults int) (float64, int, error) 
 	return totalAmount, count, nil
 }
 
+// YouTube配信情報取得（ライブチャットID確認用）
+func getYouTubeBroadcastInfo(videoID string) (*YouTubeBroadcast, error) {
+	apiKey, err := getYouTubeAPIKey()
+	if err != nil {
+		log.Printf("エラー: APIキー取得失敗 (VideoID: %s): %v", videoID, err)
+		return nil, fmt.Errorf("APIキー取得失敗: %v", err)
+	}
+
+	// Videos API: ライブ配信情報を取得
+	videoURL := fmt.Sprintf(
+		"https://www.googleapis.com/youtube/v3/videos?part=snippet,liveStreamingDetails,status&id=%s&key=%s",
+		url.QueryEscape(videoID), apiKey,
+	)
+
+	log.Printf("📽️ YouTube Videos API呼び出し (配信情報): VideoID=%s", videoID)
+	resp, err := httpClient.Get(videoURL)
+	if err != nil {
+		log.Printf("❌ 配信情報取得失敗 (VideoID: %s): %v", videoID, err)
+		return nil, fmt.Errorf("配信情報取得失敗: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("❌ YouTube Videos API エラー (VideoID: %s, ステータス: %d): %s", videoID, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("YouTube Videos API エラー (ステータス: %d)", resp.StatusCode)
+	}
+
+	var videoResp YouTubeVideoListResponse
+	if err := json.NewDecoder(resp.Body).Decode(&videoResp); err != nil {
+		log.Printf("❌ レスポンス解析失敗 (VideoID: %s): %v", videoID, err)
+		return nil, fmt.Errorf("レスポンス解析失敗: %v", err)
+	}
+
+	if len(videoResp.Items) == 0 {
+		log.Printf("⚠️ 動画情報なし (VideoID: %s)", videoID)
+		return nil, fmt.Errorf("動画情報が見つかりません")
+	}
+
+	broadcastInfo := &videoResp.Items[0]
+
+	// デバッグ: APIレスポンスの詳細をログ
+	log.Printf("[DEBUG] ライブ配信情報詳細 (VideoID: %s):", videoID)
+	log.Printf("  - LifecycleStatus: %s", broadcastInfo.Status.LifecycleStatus)
+	log.Printf("  - ActiveLiveChatID: '%s'", broadcastInfo.LiveStreamingDetails.ActiveLiveChatID)
+	log.Printf("  - Title: %s", broadcastInfo.Snippet.Title)
+
+	// ライブチャットIDが存在するかチェック
+	if broadcastInfo.LiveStreamingDetails.ActiveLiveChatID != "" {
+		log.Printf("✅ ライブ配信 - LiveChatID存在 (VideoID: %s, LiveChatID: %s)", videoID, broadcastInfo.LiveStreamingDetails.ActiveLiveChatID)
+	} else {
+		log.Printf("📹 アーカイブ/通常動画 - ライブチャットIDなし (VideoID: %s, LifecycleStatus: %s)", videoID, broadcastInfo.Status.LifecycleStatus)
+	}
+
+	return broadcastInfo, nil
+}

@@ -1110,17 +1110,50 @@ func main() {
 			go func(s SessionStream, vID string) {
 				defer wg.Done()
 
-				// コメント分析を取得
-				commentAnalysis, err := getYouTubeComments(vID, 100) // 最新100件
+				// Step 1: ライブ配信情報を取得（liveChatIdを確認）
+				broadcastInfo, err := getYouTubeBroadcastInfo(vID)
 				if err != nil {
-					log.Printf("コメント取得エラー (VideoID: %s): %v", vID, err)
-					// エラーが発生した場合、空の分析結果を使用して続行
-					commentAnalysis = &CommentAnalysis{
-						TotalComments:     0,
-						SurgeKeywordCount: 0,
-						SurgeKeywordRate:  0.0,
-						UniqueUsers:       0,
+					log.Printf("⚠️ 配信情報取得失敗 (VideoID: %s): %v", vID, err)
+				}
+
+				var commentAnalysis *CommentAnalysis
+
+				// Step 2: ライブ配信ならライブチャットAPI、アーカイブなら従来のコメントAPIを使用
+				if broadcastInfo != nil && broadcastInfo.LiveStreamingDetails.ActiveLiveChatID != "" {
+					log.Printf("📡 ライブ配信検出 (VideoID: %s, LiveChatID: %s)", vID, broadcastInfo.LiveStreamingDetails.ActiveLiveChatID)
+
+					// ライブチャットメッセージを取得
+					analysis, _, _, err := getYouTubeLiveChatMessages(
+						broadcastInfo.LiveStreamingDetails.ActiveLiveChatID,
+						"",  // pageToken（初回は空）
+						500, // maxResults
+					)
+					if err != nil {
+						log.Printf("❌ ライブチャット取得失敗 (VideoID: %s): %v", vID, err)
+						commentAnalysis = &CommentAnalysis{
+							TotalComments:     0,
+							SurgeKeywordCount: 0,
+							SurgeKeywordRate:  0.0,
+							UniqueUsers:       0,
+						}
+					} else {
+						commentAnalysis = analysis
 					}
+				} else {
+					// アーカイブなら従来のコメントAPIを使用
+					log.Printf("📹 アーカイブ/通常動画 (VideoID: %s)", vID)
+
+					analysis, err := getYouTubeComments(vID, 100) // 最新100件
+					if err != nil {
+						log.Printf("❌ コメント取得失敗 (VideoID: %s): %v", vID, err)
+						analysis = &CommentAnalysis{
+							TotalComments:     0,
+							SurgeKeywordCount: 0,
+							SurgeKeywordRate:  0.0,
+							UniqueUsers:       0,
+						}
+					}
+					commentAnalysis = analysis
 				}
 
 				// スーパーチャット取得
@@ -1143,6 +1176,17 @@ func main() {
 				history := commentHistory[vID]
 				commentHistoryMutex.RUnlock()
 
+				// デバッグ: 計算前の情報をログ
+				log.Printf("🔍 [VideoID: %s] 盛り上がり計算開始", vID)
+				log.Printf("  - 現在のコメント数: %d", commentAnalysis.TotalComments)
+				log.Printf("  - キーワード含有数: %d", commentAnalysis.SurgeKeywordCount)
+				log.Printf("  - キーワード率: %.2f%%", commentAnalysis.SurgeKeywordRate*100)
+				log.Printf("  - ユニークユーザー: %d", commentAnalysis.UniqueUsers)
+				log.Printf("  - スーパーチャット: %.2f円 (%d件)", superChatAmount, superChatCount)
+				log.Printf("  - 履歴データ数: %d", len(history))
+				log.Printf("  - 重み設定: コメント増加=%.2f, キーワード=%.2f, スパチャ=%.2f",
+					weightSettings.CommentGrowthWeight, weightSettings.KeywordWeight, weightSettings.SuperChatWeight)
+
 				// スコア計算
 				metrics := calculateSurgeScore(
 					vID,
@@ -1154,6 +1198,13 @@ func main() {
 					history,
 					weightSettings,
 				)
+
+				// デバッグ: 計算結果をログ
+				log.Printf("📊 [VideoID: %s] 盛り上がり計算結果", vID)
+				log.Printf("  - コメント増加スコア: %.2f", metrics.CommentGrowthScore)
+				log.Printf("  - キーワードスコア: %.2f", metrics.KeywordScore)
+				log.Printf("  - スパチャスコア: %.2f", metrics.SuperChatScore)
+				log.Printf("  - 🎯 総合盛り上がりスコア: %.2f (%.0f%%)", metrics.SurgeScore, metrics.SurgeScore*100)
 
 				// 履歴を更新（最新20件を保持）
 				commentHistoryMutex.Lock()
