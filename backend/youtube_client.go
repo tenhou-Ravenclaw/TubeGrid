@@ -21,15 +21,7 @@ func getYouTubeAPIKey() (string, error) {
 	// #region agent log
 	apiKey := os.Getenv("YOUTUBE_API_KEY")
 	apiKeyLen := len(apiKey)
-	apiKeyPrefix := ""
-	if apiKeyLen > 0 {
-		if apiKeyLen > 10 {
-			apiKeyPrefix = apiKey[:10] + "..."
-		} else {
-			apiKeyPrefix = apiKey
-		}
-	}
-	log.Printf("[DEBUG] getYouTubeAPIKey: apiKey存在=%v, 長さ=%d, プレフィックス=%s", apiKey != "", apiKeyLen, apiKeyPrefix)
+	log.Printf("[DEBUG] getYouTubeAPIKey: apiKey存在=%v, 長さ=%d", apiKey != "", apiKeyLen)
 	// #endregion
 	if apiKey == "" {
 		return "", fmt.Errorf("YOUTUBE_API_KEY環境変数が設定されていません")
