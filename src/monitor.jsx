@@ -10,7 +10,7 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
     rotate: rotate || 0,
     width: 0,
     height: 0,
-    zIndex: isOshi ? 150 : 100,
+    zIndex: isOshi ? 650 : 600, // サブがメイン(500)より前に出るように上げる
   });
 
   const nodeRef = useRef(null);
@@ -243,7 +243,7 @@ const Monitor = ({ id, x, y, rotate, vid, frameImg, onSwap, onDelete, isOshi, la
       <div
         ref={nodeRef}
         className={`monitor-draggable-wrapper ${isOshi ? "oshi-focus" : ""} ${getSurgeClass()}`}
-        style={{ position: "absolute", left: `${position.x}px`, top: `${position.y}px`, zIndex: isOshi ? 150 : 100 }}
+        style={{ position: "absolute", left: `${position.x}px`, top: `${position.y}px`, zIndex: position.zIndex }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onDoubleClick={onSwap}

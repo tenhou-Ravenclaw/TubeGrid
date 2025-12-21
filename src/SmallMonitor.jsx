@@ -23,7 +23,7 @@ const SmallMonitor = ({
     rotate: rotate || 0,
     width: 300,
     height: 0,
-    zIndex: isOshi ? 150 : 80,
+    zIndex: isOshi ? 650 : 600, // 小モニターもメイン(500)より前に出す
   });
 
   const nodeRef = useRef(null); // 本体用
@@ -267,7 +267,7 @@ const SmallMonitor = ({
           left: `${position.x}px`,
           top: `${position.y}px`,
           width: "300px",
-          zIndex: isOshi ? 150 : 80,
+            zIndex: position.zIndex,
         }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
