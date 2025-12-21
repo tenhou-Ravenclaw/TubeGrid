@@ -17,10 +17,20 @@ const SmallMonitor = ({
   volume: propVolume = 50,
   surgeScore = 0,
 }) => {
+  const createPosition = (xPos, yPos) => ({
+    x: xPos,
+    y: yPos,
+    rotate: rotate || 0,
+    width: 300,
+    height: 0,
+    zIndex: isOshi ? 150 : 80,
+  });
+
   const nodeRef = useRef(null); // 本体用
   const handleRef = useRef(null); // つまみ用
   const [videoId, setVideoId] = useState(vid);
-  const [position, setPosition] = useState({ x, y });
+  const [position, setPosition] = useState(() => createPosition(x, y));
+  const lastValidPositionRef = useRef(createPosition(x, y));
   const [volume, setVolume] = useState(propVolume);
   const playerRef = useRef(null);
   const [volumePosition, setVolumePosition] = useState({ x: 40, y: 0 });
@@ -36,8 +46,10 @@ const SmallMonitor = ({
     setVideoId(vid);
   }, [vid]);
   useEffect(() => {
-    setPosition({ x, y });
-  }, [x, y]);
+    const nextPosition = createPosition(x, y);
+    setPosition(nextPosition);
+    lastValidPositionRef.current = nextPosition;
+  }, [x, y, rotate, isOshi]);
   useEffect(() => {
     setVolume(propVolume);
   }, [propVolume]);
@@ -181,6 +193,18 @@ const SmallMonitor = ({
     return '';
   };
 
+  const isWithinViewport = () => {
+    if (!nodeRef.current) return true;
+    const rect = nodeRef.current.getBoundingClientRect();
+    const margin = 8;
+    return (
+      rect.left >= margin &&
+      rect.top >= margin &&
+      rect.right <= window.innerWidth - margin &&
+      rect.bottom <= window.innerHeight - margin
+    );
+  };
+
   // ドラッグ開始時の処理
   const handleDragStart = () => {
     // #region agent log
@@ -197,25 +221,24 @@ const SmallMonitor = ({
     // #region agent log
     fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SmallMonitor.jsx:157',message:'handleDragStop called',data:{monitorId:id,isDragging:isDraggingRef.current,position:{x:data.x,y:data.y},currentPosition:{x:position.x,y:position.y}},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
-    const newPosition = {
-      x: data.x,
-      y: data.y,
-      rotate: rotate || 0,
-      width: 300,
-      height: 0,
-      zIndex: isOshi ? 150 : 80
-    };
+    const newPosition = createPosition(data.x, data.y);
     const positionChanged = data.x !== position.x || data.y !== position.y;
+    const withinViewport = isWithinViewport();
     // #region agent log
     fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SmallMonitor.jsx:166',message:'Before onPositionChange',data:{monitorId:id,isDragging:isDraggingRef.current,positionChanged},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
-    setPosition(newPosition);
-    // 実際にドラッグが発生し、位置が変わった場合のみ位置を保存
-    if (onPositionChange && isDraggingRef.current && positionChanged) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SmallMonitor.jsx:170',message:'Calling onPositionChange',data:{monitorId:id,newPosition},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      onPositionChange(newPosition);
+    if (withinViewport) {
+      setPosition(newPosition);
+      lastValidPositionRef.current = newPosition;
+      // 実際にドラッグが発生し、位置が変わった場合のみ位置を保存
+      if (onPositionChange && isDraggingRef.current && positionChanged) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9c3b95fe-856f-4f22-a41e-a1e48435e158',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SmallMonitor.jsx:170',message:'Calling onPositionChange',data:{monitorId:id,newPosition},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        onPositionChange(newPosition);
+      }
+    } else {
+      setPosition(lastValidPositionRef.current);
     }
     isDraggingRef.current = false;
   };
