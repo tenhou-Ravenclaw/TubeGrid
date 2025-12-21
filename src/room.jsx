@@ -318,7 +318,7 @@ const Room = ({ onLogout, userId: propUserId }) => {
   const adjustVolumesForSurge = (surgeMap) => {
     // 盛り上がりスコアに基づいて音量を調整
     Object.entries(surgeMap).forEach(([videoId, score]) => {
-      if (score > 0.3) { // 閾値: 0.3
+      if (score > 0.15) { // 閾値: 0.15(デモ用)
         adjustStreamVolume(videoId, score);
       }
     });
