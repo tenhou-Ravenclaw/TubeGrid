@@ -24,7 +24,8 @@
   font-weight: 800;
   margin: 0 330px;
   letter-spacing: 2px;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
+  color: #fff5f8;
 }
 
 .app-subtitle {
