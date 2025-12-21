@@ -85,11 +85,13 @@ func getStreamStatusWithCache(t Talent) (*StreamStatus, error) {
 
 func main() {
 	// #region agent log
-	err := godotenv.Load()
-	if err != nil {
-		log.Printf("[DEBUG] godotenv.Load() エラー: %v", err)
+	// .env の探索パスを増やして、ルート起動と backend 起動の両方に対応
+	// 優先順: backend/.env -> ルート/.env
+	envPaths := []string{".env", "../.env"}
+	if err := godotenv.Load(envPaths...); err != nil {
+		log.Printf("[DEBUG] godotenv.Load() エラー (paths=%v): %v", envPaths, err)
 	} else {
-		log.Printf("[DEBUG] godotenv.Load() 成功")
+		log.Printf("[DEBUG] godotenv.Load() 成功 (paths=%v)", envPaths)
 	}
 	// .envファイルの内容を確認（APIキーの存在のみ）
 	apiKey := os.Getenv("YOUTUBE_API_KEY")
